@@ -1,0 +1,40 @@
+[project]
+name = "coehoorn"
+version = "0.2.0"
+description = "Local adversarial simulation harness for chat and tool-using agents: rubric in, ranked failure report with cited transcript evidence out."
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.97.0",
+    "httpx>=0.28.1",
+    "pydantic>=2.13.3",
+    "python-dotenv>=1.2.2",
+    "pyyaml>=6.0.2",
+]
+
+[project.optional-dependencies]
+# Lazy extras: neither is imported on the core path. See ADRs.
+mcp = ["mcp>=1.0"]
+inspect = ["inspect-ai>=0.3"]
+
+[project.scripts]
+coehoorn = "coehoorn.cli:main"
+coehoorn-mcp = "coehoorn.mcp_server:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["coehoorn"]
+
+[dependency-groups]
+dev = [
+    "flask>=3.1.3",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.15.12",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

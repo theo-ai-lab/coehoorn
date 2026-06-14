@@ -1,0 +1,55 @@
+# Run an adversarial siege against an agent in CI and surface the breaches in the
+# GitHub Security tab (SARIF) and as a test report (JUnit). This is the drop-in
+# pattern: Coehoorn produces the standard formats a pipeline already consumes.
+#
+# Demonstrative: heuristic mode needs no API key, so this runs fully offline. Swap
+# the --agent endpoint for your real agent and set ANTHROPIC_API_KEY for LLM mode.
+name: siege
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  siege:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write  # required to upload SARIF to the Security tab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - run: uv sync
+
+      - name: Start the (deliberately-flawed) demo agent
+        run: |
+          (cd apps/stub-agent && uv sync && uv run python app.py &)
+          # Poll until the stub is actually listening, rather than a fixed sleep
+          # (a cold runner can take more than a couple seconds to bind). No -f:
+          # any HTTP response (even a 404 on /) proves the port is up; only a
+          # connection refusal keeps us waiting.
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://127.0.0.1:8001/ && break
+            sleep 1
+          done
+
+      - name: Lay siege — emit SARIF + JUnit
+        run: |
+          uv run coehoorn run \
+            --rubric examples/rubric_coach.yaml \
+            --agent http://127.0.0.1:8001/chat \
+            --personas 6 --turns 4 --out runs/ci --emit sarif,junit
+        # Add --fail-on-breach to turn discovered breaches into a hard gate.
+
+      - name: Upload breaches to the Security tab (SARIF)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: runs/ci
+
+      - name: Publish the siege as a test report (JUnit)
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: runs/ci/*.junit.xml

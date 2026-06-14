@@ -1,0 +1,47 @@
+# Offline CI for Coehoorn. Every gate here runs without a network or an API key,
+# which is the point: the harness's own determinism thesis is enforced in CI.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Sync (core only — no extras)
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Test (full offline suite)
+        run: uv run pytest -q
+
+      - name: Judge meta-eval gate (Wilson interval floor)
+        run: |
+          uv run coehoorn meta-eval \
+            --gold tests/gold/judge_gold.jsonl \
+            --rubric examples/rubric_coach.yaml \
+            --min-recall-lower 0.20
+
+      - name: Sample report is byte-reproducible
+        run: |
+          uv run python scripts/build_sample_report.py
+          git diff --exit-code runs/sample/
+
+  extras:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - name: Test optional extras (mcp + inspect)
+        run: uv run --all-extras pytest tests/test_extras.py -q

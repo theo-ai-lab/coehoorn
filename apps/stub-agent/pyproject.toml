@@ -1,0 +1,13 @@
+[project]
+name = "coehoorn-stub"
+version = "0.1.0"
+description = "Intentionally-flawed Flask stub agent for Coehoorn adversarial testing. Not for production."
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.1.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
