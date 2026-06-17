@@ -27,7 +27,7 @@ under siege, where each broken wall is a place the agent failed.
 | | |
 |---|---|
 | **Version** | v0.2 — feature-complete |
-| **Tests** | **189 total — 187 pass fully offline, 2 gated behind optional add-ons** |
+| **Tests** | **233 total — 231 pass fully offline, 2 gated behind optional add-ons** |
 | **Lint** | clean (`ruff`) |
 | **Determinism** | the sample reports regenerate **byte-for-byte identical** |
 | **Code** | 16 modules, ~5,000 lines; **5 runtime dependencies** (citation-integrity suite added zero) |
@@ -126,7 +126,7 @@ Each step ended green: tests passing, lint clean, sample reproducible.
 
 ## 5. Quality evidence (so the claims are checkable)
 
-- 187 offline tests (189 total, 2 gated); the schema invariants, the report's design
+- 231 offline tests (233 total, 2 gated); the schema invariants, the report's design
   constraints, the meta-eval numbers, the mutation score's load-bearing/confirmatory
   split, the metamorphic Fisher+Holm gate, byte-reproducibility, and the network
   boundary are each pinned by tests.

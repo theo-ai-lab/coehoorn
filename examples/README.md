@@ -30,3 +30,24 @@ uv run coehoorn compare \
 ```
 
 The `run` command writes `runs/<run_id>.json` (machine-readable) and `runs/<run_id>.html` (a self-contained report you can open with a browser).
+
+## Pointing at a real external agent
+
+`--agent` accepts any HTTP endpoint speaking the `{conversation} -> {reply}`
+contract, so the same command sieges a real agent — not just the local stub.
+The endpoint and its auth resolve from the environment (via `coehoorn/config.py`)
+so secrets stay off the command line:
+
+```
+export AGENT_ENDPOINT="https://your-agent.example.com/chat"
+export AGENT_API_KEY="<token>"          # -> Authorization: Bearer <token>
+# or: export AGENT_AUTH_HEADER="x-api-key: <token>"   # any raw header line
+
+uv run coehoorn run --rubric examples/rubric_coach.yaml \
+  --personas 6 --turns 4 --out runs/external --emit sarif,junit
+```
+
+`.github/workflows/external-siege.yml` runs exactly this in CI against a
+configured `AGENT_ENDPOINT` (secret/variable) and uploads SARIF + posts cited
+breaches on the PR. The full engagement scaffold is
+[`docs/ENGAGEMENT_TEMPLATE.md`](../docs/ENGAGEMENT_TEMPLATE.md).

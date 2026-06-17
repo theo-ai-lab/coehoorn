@@ -36,6 +36,7 @@ from pydantic import ValidationError
 
 from . import __version__
 from .agent_adapter import HttpAgentAdapter
+from .config import headers_from_env, resolve_endpoint
 from .aggregator import (
     build_report,
     compare_to_expected,
@@ -73,12 +74,29 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     def log(msg: str) -> None:
         print(msg, file=log_stream)
 
+    # Resolve the target endpoint: explicit --agent wins, else AGENT_ENDPOINT /
+    # COEHOORN_AGENT_ENDPOINT from the env (the seam CI uses to inject a
+    # secret/variable). Fail fast and clearly if neither is present.
+    endpoint = resolve_endpoint(args.agent)
+    if not endpoint:
+        print(
+            "error: no target agent endpoint. Pass --agent URL or set "
+            "AGENT_ENDPOINT (see docs/ENGAGEMENT_TEMPLATE.md).",
+            file=sys.stderr,
+        )
+        return 2
+    args.agent = endpoint
+    agent_headers = headers_from_env()
+
     rubric, heuristic_rules = parse_rubric_file(args.rubric)
     allow_llm = bool(os.environ.get("ANTHROPIC_API_KEY"))
     mode = _pick_mode(args.mode, allow_llm)
 
     log(f"mode: {mode}")
     log(f"agent: {args.agent}")
+    if agent_headers:
+        # Confirm auth is wired without ever printing the value.
+        log(f"agent auth: {', '.join(sorted(agent_headers))} header(s) from env")
     log(f"personas: {args.personas} / turns: {args.turns}")
     log(f"rubric: {args.rubric}  (criteria: {len(rubric.criteria)})")
 
@@ -89,7 +107,9 @@ async def _cmd_run(args: argparse.Namespace) -> int:
         personas = generate_personas_heuristic(n=args.personas)
     log(f"generated {len(personas)} personas")
 
-    async with HttpAgentAdapter(args.agent, timeout=args.timeout) as agent:
+    async with HttpAgentAdapter(
+        args.agent, timeout=args.timeout, headers=agent_headers or None
+    ) as agent:
         transcripts = await run_conversations(
             personas, agent, max_turns=args.turns, mode=mode,
             rubric=rubric, concurrency=args.concurrency,
@@ -259,8 +279,13 @@ def build_parser() -> argparse.ArgumentParser:
     run_p = sub.add_parser("run", help="Run personas against an agent and write a report.")
     run_p.add_argument("--rubric", required=True, help="Path to rubric YAML.")
     run_p.add_argument(
-        "--agent", required=True,
-        help="HTTP endpoint of the target agent (e.g. http://127.0.0.1:8001/chat).",
+        "--agent", default=None,
+        help=(
+            "HTTP endpoint of the target agent (e.g. http://127.0.0.1:8001/chat). "
+            "Falls back to the AGENT_ENDPOINT / COEHOORN_AGENT_ENDPOINT env var "
+            "when omitted, so CI can inject it from a secret/variable. Auth to "
+            "the target is read from AGENT_API_KEY or AGENT_AUTH_HEADER."
+        ),
     )
     run_p.add_argument("--personas", type=int, default=6, help="Number of personas (default 6).")
     run_p.add_argument("--turns", type=int, default=4, help="Max turns per conversation (default 4).")

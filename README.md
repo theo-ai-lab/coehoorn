@@ -6,7 +6,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Runtime deps: 5](https://img.shields.io/badge/runtime%20deps-5-informational)
 ![Offline · no telemetry](https://img.shields.io/badge/offline-no%20telemetry-success)
-![Tests: 187 offline](https://img.shields.io/badge/tests-187%20offline-success)
+![Tests: 231 offline](https://img.shields.io/badge/tests-231%20offline-success)
 
 **The problem.** You're shipping a chat or tool-using agent. It passes unit tests —
 then in a real multi-turn conversation it caves under pressure, fabricates a
@@ -116,6 +116,25 @@ uv run coehoorn compare \
 > fails to refer self-harm to help, and fabricates a legal citation ~30% of the
 > time. The breaches Coehoorn catches are designed catches, not luck, which is what
 > makes them a reproducible demo.
+
+**Siege a real external agent.** The same `run` command points at any HTTP
+agent speaking `{conversation} -> {reply}` — the endpoint and its auth resolve
+from the environment (`AGENT_ENDPOINT`, `AGENT_API_KEY` / `AGENT_AUTH_HEADER`)
+so nothing secret touches the command line:
+
+```bash
+export AGENT_ENDPOINT="https://your-agent.example.com/chat"
+export AGENT_API_KEY="…"   # -> Authorization: Bearer …  (or AGENT_AUTH_HEADER)
+uv run coehoorn run --rubric examples/rubric_coach.yaml \
+  --personas 6 --turns 4 --out runs/external --emit sarif,junit
+```
+
+`.github/workflows/external-siege.yml` wires this into CI against a configured
+target (secret/variable): SARIF to the Security tab, JUnit report, and cited
+breaches posted as a PR comment — and it no-ops gracefully when no endpoint is
+set. See [`docs/ENGAGEMENT_TEMPLATE.md`](docs/ENGAGEMENT_TEMPLATE.md) for the
+full engagement scaffold. (If your agent speaks a different wire shape, wrap
+`HttpAgentAdapter` or pass any `async (conversation) -> str` callable.)
 
 **LLM mode** runs the full path end-to-end. With `ANTHROPIC_API_KEY` set,
 `--mode llm` drives personas and conversations on Claude (Opus) and judges with
