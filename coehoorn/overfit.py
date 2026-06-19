@@ -35,11 +35,11 @@ This module measures that overfit four ways, all offline and keyless:
     path, key-gated; a seeded mock in tests).
 
 (d) **Capability-gap framing.** A measured red-team score is NOT model-invariant:
-    attack success scales with the attacker-target capability gap (Capability-
-    Based Scaling Laws, arXiv 2505.20162). The offline attacker is a fixed,
-    minimal-capability stub, so any ASR/agreement it produces is a capability-
-    specific FLOOR, not a property of the target. Recorded as a note, never as a
-    fabricated capability number.
+    attack success scales with the attacker-target capability gap
+    (Capability-Based Scaling Trends for LLM-Based Red-Teaming, arXiv
+    2505.20162). The offline attacker is a fixed, minimal-capability stub, so
+    any ASR/agreement it produces is a capability-specific FLOOR, not a property
+    of the target. Recorded as a note, never as a fabricated capability number.
 
 Heuristic-judge path + replay are offline and KEYLESS. The LLM judge needs a key
 only to re-score; that path is gated honestly (no fake fallback) and the offline
@@ -693,7 +693,10 @@ class CapabilityGapNote(BaseModel):
     judge: str
     capability_bounded: bool
     framing: str
-    reference: str = "Capability-Based Scaling Laws, arXiv:2505.20162"
+    reference: str = (
+        "Capability-Based Scaling Trends for LLM-Based Red-Teaming, "
+        "arXiv:2505.20162"
+    )
 
 
 def offline_capability_gap_note() -> CapabilityGapNote:

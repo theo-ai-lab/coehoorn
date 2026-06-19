@@ -278,7 +278,8 @@ specific to the disclosed held-out set). A judge-rubric-complexity scalar (count
 tunable signals) sits next to it as the capacity-to-overfit. The command also traces
 a **sample-k saturation curve on a fixed gold set** (resamples only — never an
 asymptote over gold-set *size* at n<30) and frames any single red-team score as a
-capability-relative floor (Capability-Based Scaling Laws, arXiv:2505.20162), never a
+capability-relative floor (Capability-Based Scaling Trends for LLM-Based
+Red-Teaming, arXiv:2505.20162), never a
 fabricated capability number. The optional `--min-corrected-recall-lower` gate fails
 on the *corrected* floor — gating on the naive bound would be the very overfit the
 audit exposes.
