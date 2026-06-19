@@ -255,7 +255,7 @@ installed (a clean-interpreter test enforces it):
 - **Deterministic and private.** Heuristic mode is byte-reproducible; no telemetry, no
   external callbacks. Outbound network is only the agent endpoint and, in LLM mode,
   `api.anthropic.com`.
-- **Tested at the boundaries.** 186 tests (184 fully offline + deterministic, 2 gated
+- **Tested at the boundaries.** 318 tests (316 fully offline + deterministic, 2 gated
   behind the extras) — schema invariants, the report's design constraints, the meta-eval
   numbers, the mutation score's load-bearing/confirmatory split, the metamorphic
   Fisher+Holm gate, byte-reproducibility, the network adapter, and the tool-policy checks.
@@ -285,7 +285,7 @@ coehoorn/  (modules listed roughly largest-first)
 apps/stub-agent/     a deliberately-flawed local fixture (LOCAL ONLY) to test against
 examples/            sample rubric + tool-policy rubric + expected-failures fixture
 tests/gold/          the frozen, hand-labeled judge gold set (+ gold_cited_turn anchors)
-tests/               233 tests (231 offline, 2 gated)
+tests/               318 tests (316 offline, 2 gated)
 ARCHITECTURE.md      full data-flow walkthrough + the trust boundary
 docs/                EVAL, coverage-map, ADRs, one-page brief
 runs/sample/         committed chat sample (byte-reproducible)
@@ -334,7 +334,7 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 
 ## 16. Status — where the build stands today
 
-- **Done & green.** v0.2. 233 tests (231 offline + deterministic), lint clean,
+- **Done & green.** v0.2. 318 tests (316 offline + deterministic), lint clean,
   byte-reproducible samples.
 - **Recently added.** A citation-integrity suite — `mutation-score` (mutation-test the
   gold set; honest 4/6) and `metamorphic`/CITE-MR (verdict + citation stability under
