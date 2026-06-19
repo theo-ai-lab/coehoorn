@@ -144,8 +144,10 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 target (secret/variable): SARIF to the Security tab, JUnit report, and cited
 breaches posted as a PR comment — and it no-ops gracefully when no endpoint is
 set. See [`docs/ENGAGEMENT_TEMPLATE.md`](docs/ENGAGEMENT_TEMPLATE.md) for the
-full engagement scaffold. (If your agent speaks a different wire shape, wrap
-`HttpAgentAdapter` or pass any `async (conversation) -> str` callable.)
+findings scaffold and [`docs/engagements/`](docs/engagements/) for the
+consulting kit around it (SOW, discovery questionnaire, methodology, ROI model).
+(If your agent speaks a different wire shape, wrap `HttpAgentAdapter` or pass any
+`async (conversation) -> str` callable.)
 
 **LLM mode** runs the full path end-to-end. With `ANTHROPIC_API_KEY` set,
 `--mode llm` drives personas and conversations on Claude (Opus) and judges with

@@ -10,6 +10,15 @@ The value of this document is that **every claim is checkable**: each breach
 points at a transcript turn, and the same SARIF/JUnit it cites is what the
 target team already consumes in CI.
 
+> **This is the *findings* deliverable.** The surrounding client-facing artifacts
+> live in [`engagements/`](./engagements/): the
+> [SOW template](./engagements/SOW_TEMPLATE.md) (scope, phases, illustrative
+> pricing), the [discovery questionnaire](./engagements/DISCOVERY_QUESTIONNAIRE.md)
+> (scoping intake + wire contract), the [methodology](./engagements/METHODOLOGY.md)
+> (how-we-work, RACI), and the [ROI model](./engagements/ROI_MODEL.md)
+> (cost-benefit from client-supplied inputs). This template fills the "cited
+> findings" phase of that engagement.
+
 ---
 
 ## 0. The un-fakeable part (read first)
