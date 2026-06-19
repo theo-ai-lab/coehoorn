@@ -369,11 +369,15 @@ def build_parser() -> argparse.ArgumentParser:
     from .mutants import register_subparser as _register_mutation_score
     from .metamorphic import register_subparser as _register_metamorphic
     from .overfit import register_subparser as _register_overfit_audit
+    from .distill import register_subparser as _register_distill_floor
+    from .selective_risk import register_subparser as _register_selective_risk
     from .selfplay.cli import register_subparser as _register_self_play
 
     _register_mutation_score(sub)
     _register_metamorphic(sub)
     _register_overfit_audit(sub)
+    _register_distill_floor(sub)
+    _register_selective_risk(sub)
     _register_self_play(sub)
     return p
 
