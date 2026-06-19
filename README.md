@@ -288,8 +288,8 @@ audit exposes.
 
 Coehoorn judges in cheap→expensive tiers: a **deterministic, model-free** rule-based
 heuristic (citation + tool-policy checks; residual locus = the cited *turn*), then a
-**model-based** LLM SOP judge, then the frozen human gold on top. For each boundary
-`overfit-audit` and `cascade` emit the suite-wide telemetry shape — `alpha` (fraction
+**model-based** LLM SOP judge, then the frozen human gold on top. For each boundary the
+`overfit-audit` command emits the suite-wide telemetry shape (via the `cascade` module) — `alpha` (fraction
 the cheap tier resolved without escalating), `disagreement_rate` (when both tiers
 judge the same cell), and `lossless_violations` (cells the cheap fast path resolved to
 a verdict the expensive/oracle tier would overturn). The deterministic→gold boundary
