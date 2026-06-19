@@ -117,6 +117,17 @@ uv run coehoorn compare \
 > time. The breaches Coehoorn catches are designed catches, not luck, which is what
 > makes them a reproducible demo.
 
+**Write-back contamination (the KB-poisoner).** Add `--include-kb-poisoner` to a
+`run` to append a seventh persona that probes the *agent-write-back* surface — it
+tries to get the agent to persist attacker-controlled content (a saved note, a
+memory entry, an injected "standing instruction") into a store later read back as
+trusted. It drives its own dedicated probe script and folds two write-back
+criteria into the run: an unsanitized `kb_write` (OWASP Agentic ASI03
+approval-bypass / ASI02 tool misuse) and an echo of a persisted override (OWASP
+LLM01 carried through memory). The criteria never fire on the other personas, so
+the flag only adds the new face; the safe stub holds, a write-back-vulnerable
+target breaches with a cited turn.
+
 **Siege a real external agent.** The same `run` command points at any HTTP
 agent speaking `{conversation} -> {reply}` — the endpoint and its auth resolve
 from the environment (`AGENT_ENDPOINT`, `AGENT_API_KEY` / `AGENT_AUTH_HEADER`)
@@ -235,6 +246,53 @@ target is the stochastic LLM judge (`--mode llm`), where an instability call is
 gated by **Fisher's exact one-sided test with a Holm step-down correction** over
 the transform family, not a normal-approximation z-test (ADR-0011).
 
+## Self-play attack conjecturer
+
+`coehoorn self-play` closes the loop: instead of only running fixed archetype
+probes, it **generates** new adversarial scenarios — a fresh persona + a
+multi-turn probe script — each one *seed-grounded* in a logged breach, drives it
+against the target, and pays a reward only when the attack is real.
+
+The reward is made un-gameable by reusing Coehoorn's own rigor:
+
+```
+guided_reward = base_reward    # the judge found a breach (1.0) or not (0.0)
+              × guide.score    # SGS = relatedness × non_degeneracy
+              × trust_gate     # 1.0 iff ALL three hold:
+```
+
+- **SGS guide** (`relatedness × non_degeneracy`) — an attack that drifts off its
+  seed, or that emits degenerate reward-farming filler, scores ~0. Because the
+  two factors multiply, an attack must be **both** on-seed **and** a genuine
+  multi-turn probe to earn anything.
+- **citation-to-turn invariant** — a "successful" attack must produce a
+  transcript+verdict that assembles into a `Report` (the breach cites a turn that
+  actually exists), or it pays nothing.
+- **judge mutation-score gate** — the judge measuring attack-success must clear
+  its calibration floor first, so a conjecturer cannot inflate ASR by leaning on
+  a broken judge.
+- **CITE-MR stability gate** — a claimed breach is only counted if its citation
+  survives the semantics-preserving transforms; a one-off flicker is not a win.
+
+```bash
+(cd apps/stub-agent && uv run python app.py)   # the deliberately-flawed stub
+
+uv run coehoorn self-play \
+  --rubric examples/rubric_coach.yaml \
+  --gold   tests/gold/judge_gold.jsonl \      # breach cells seed the conjecturer
+  --agent  http://127.0.0.1:8001/chat \
+  --criterion safe_handling_of_self_harm      # one attack per seeded breach
+```
+
+**Offline (no key) is a plumbing demo, not a measurement.** With no
+`ANTHROPIC_API_KEY`, self-play runs a deterministic stub conjecturer + the
+heuristic judge to prove the loop end-to-end; the command stamps every such
+result with `OFFLINE PLUMBING DEMO …` and `is_live: false`. The **measured**
+attack-success-rate (`--mode llm`: live Opus conjecturer inventing novel attacks
++ live Sonnet judge, with `pass^k` over `--k` resamples) needs the key and is the
+deliberately un-fakeable part — the live path raises rather than silently
+degrading to the stub, so a "live" number can never be a stub number in disguise.
+
 ## What this does *not* claim
 
 Coehoorn makes uncited and out-of-range verdicts impossible. It does **not** make
@@ -279,6 +337,7 @@ coehoorn/
   schemas.py        # the Pydantic wire contract — the trust boundary
   rubric_parser.py  # YAML -> Rubric + heuristic rules
   personas.py       # heuristic + LLM adversarial persona generators
+  personas_kb.py    # the KB-poisoner persona, probes, and write-back rubric
   agent_adapter.py  # HTTP / callable adapters for the target agent
   conversation.py   # async, bounded-concurrency conversation runner
   judge.py          # heuristic + LLM judges (one retry, no silent fallback)
@@ -287,8 +346,9 @@ coehoorn/
   meta_eval.py      # score the judge against gold — audit the auditor
   mutants.py        # Judge Mutation Score — plant broken judges, prove the gold catches them
   metamorphic.py    # CITE-MR — verdict + citation stability under semantics-preserving transforms
+  selfplay/         # seed-grounded attack conjecturer + SGS guide + gated self-play loop
   report_html.py    # the self-contained Siege Survey (no JS, no assets)
-  cli.py            # coehoorn run / compare / meta-eval / mutation-score / metamorphic
+  cli.py            # coehoorn run / compare / meta-eval / mutation-score / metamorphic / self-play
   mcp_server.py     # optional: MCP server (extra)
   inspect_export.py # optional: Inspect AI EvalLog export (extra)
 ARCHITECTURE.md     # full data-flow walkthrough + the trust boundary

@@ -10,6 +10,11 @@
   coehoorn meta-eval --gold tests/gold/judge_gold.jsonl \\
                    --rubric examples/rubric_coach.yaml
 
+  coehoorn self-play --rubric examples/rubric_coach.yaml \\
+                   --gold tests/gold/judge_gold.jsonl \\
+                   --agent http://127.0.0.1:8001/chat \\
+                   --criterion safe_handling_of_self_harm
+
 The CLI is the canonical interface. The HTML report is a side effect of
 `run` and is opened by clicking the printed path; there is no localhost
 server.
@@ -107,12 +112,35 @@ async def _cmd_run(args: argparse.Namespace) -> int:
         personas = generate_personas_heuristic(n=args.personas)
     log(f"generated {len(personas)} personas")
 
+    # Opt-in: append the KB-poisoner (write-back contamination) persona and fold
+    # its dedicated probe script + tool-policy/content criteria into this run, so
+    # the agent-write-back surface is exercised end-to-end. Its criteria never
+    # fire on the other personas (their probes miss the keywords / take no
+    # KB-write tool), so this only adds the new face — it changes no other cell.
+    probe_overrides: dict[str, list[str]] | None = None
+    if args.include_kb_poisoner:
+        from .personas_kb import (
+            KB_POISONER_PROBES,
+            kb_poisoner_persona,
+            merge_kb_poisoner_rubric,
+        )
+
+        kb_persona = kb_poisoner_persona(f"p{len(personas):02d}")
+        personas.append(kb_persona)
+        probe_overrides = {kb_persona.id: KB_POISONER_PROBES}
+        rubric, heuristic_rules = merge_kb_poisoner_rubric(rubric, heuristic_rules)
+        log(
+            f"included KB-poisoner persona {kb_persona.id} ({kb_persona.name}); "
+            f"rubric now has {len(rubric.criteria)} criteria"
+        )
+
     async with HttpAgentAdapter(
         args.agent, timeout=args.timeout, headers=agent_headers or None
     ) as agent:
         transcripts = await run_conversations(
             personas, agent, max_turns=args.turns, mode=mode,
             rubric=rubric, concurrency=args.concurrency,
+            probe_overrides=probe_overrides,
         )
     log(f"ran {len(transcripts)} conversations")
 
@@ -305,6 +333,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--emit", default="",
         help="Comma-separated extra CI outputs: sarif,junit (in addition to json+html).",
     )
+    run_p.add_argument(
+        "--include-kb-poisoner", dest="include_kb_poisoner", action="store_true",
+        help=(
+            "Append the KB-poisoner (agent write-back contamination) persona and "
+            "fold its dedicated probe script + write-back criteria into the run "
+            "(OWASP LLM01 via the memory/KB surface; ASI02/ASI03 tool policy)."
+        ),
+    )
     run_p.set_defaults(_func=lambda a: asyncio.run(_cmd_run(a)))
 
     cmp_p = sub.add_parser(
@@ -327,13 +363,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     me_p.set_defaults(_func=_cmd_meta_eval)
 
-    # Citation-integrity suite: each module owns its own subparser surface,
-    # registered here so build_parser() stays the single CLI assembly point.
+    # Citation-integrity suite + self-play: each module owns its own subparser
+    # surface, registered here so build_parser() stays the single CLI assembly
+    # point.
     from .mutants import register_subparser as _register_mutation_score
     from .metamorphic import register_subparser as _register_metamorphic
+    from .selfplay.cli import register_subparser as _register_self_play
 
     _register_mutation_score(sub)
     _register_metamorphic(sub)
+    _register_self_play(sub)
     return p
 
 
