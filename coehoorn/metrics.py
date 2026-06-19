@@ -24,6 +24,91 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 Z_95: float = 1.959963984540054
 
 
+def normal_ppf(p: float) -> float:
+    """Inverse standard-normal CDF (the quantile / probit function).
+
+    Pure stdlib (Acklam's rational approximation, max abs error ~1.2e-9 over the
+    open unit interval) so the core stays SciPy-free — the same discipline as the
+    erfc-based survival function in :mod:`coehoorn.metamorphic`. Used to derive a
+    Bonferroni-adjusted z for a multiplicity-corrected Wilson bound (a tuned
+    config's lower bound must use a wider quantile than the naive 95%).
+
+    Raises ``ValueError`` outside the open interval ``(0, 1)`` — ``+/-inf`` is not
+    a usable z for a confidence quantile.
+    """
+    if not 0.0 < p < 1.0:
+        raise ValueError(f"normal_ppf requires 0 < p < 1; got {p}")
+    # Acklam's algorithm: rational approximations on three regions.
+    a = (
+        -3.969683028665376e01, 2.209460984245205e02, -2.759285104469687e02,
+        1.383577518672690e02, -3.066479806614716e01, 2.506628277459239e00,
+    )
+    b = (
+        -5.447609879822406e01, 1.615858368580409e02, -1.556989798598866e02,
+        6.680131188771972e01, -1.328068155288572e01,
+    )
+    c = (
+        -7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e00,
+        -2.549732539343734e00, 4.374664141464968e00, 2.938163982698783e00,
+    )
+    d = (
+        7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e00,
+        3.754408661907416e00,
+    )
+    p_low = 0.02425
+    p_high = 1.0 - p_low
+    if p < p_low:
+        q = math.sqrt(-2.0 * math.log(p))
+        x = (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
+            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0
+        )
+    elif p <= p_high:
+        q = p - 0.5
+        r = q * q
+        x = (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (
+            ((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1.0
+        )
+    else:
+        q = math.sqrt(-2.0 * math.log(1.0 - p))
+        x = -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / (
+            (((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1.0
+        )
+    return x
+
+
+def bonferroni_z(alpha: float = 0.05, n_comparisons: int = 1) -> float:
+    """Two-sided standard-normal z for a Bonferroni-adjusted family of size m.
+
+    Returns ``Phi^-1(1 - alpha / (2 * m))``. With ``m == 1`` this is the ordinary
+    two-sided ``z`` (``~1.96`` at ``alpha=0.05``); with ``m > 1`` the quantile
+    widens, which is exactly the point — a confidence bound on the *selected* best
+    of ``m`` searched configs must spend its error budget across the whole family,
+    or it overstates the floor of a config that was tuned on the eval set.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1); got {alpha}")
+    if n_comparisons < 1:
+        raise ValueError(f"n_comparisons must be >= 1; got {n_comparisons}")
+    return normal_ppf(1.0 - alpha / (2.0 * n_comparisons))
+
+
+def wilson_lower_bound(
+    successes: int, n: int, *, alpha: float = 0.05, n_comparisons: int = 1
+) -> float:
+    """Wilson score lower bound, optionally Bonferroni-corrected for selection.
+
+    ``n_comparisons == 1`` (the default) returns the ordinary two-sided
+    ``1 - alpha`` Wilson lower bound. ``n_comparisons == m > 1`` returns the
+    *simultaneous* lower bound at the Bonferroni-adjusted level ``alpha / m`` — the
+    honest floor for the best-of-``m`` config selected on the same gold set it was
+    scored against. With ``n == 0`` there is no information, so ``0.0`` is returned
+    (mirroring :func:`wilson_interval`'s uninformative ``[0, 1]``).
+    """
+    if n == 0:
+        return 0.0
+    return wilson_interval(successes, n, z=bonferroni_z(alpha, n_comparisons))[0]
+
+
 def wilson_interval(successes: int, n: int, z: float = Z_95) -> tuple[float, float]:
     """Wilson score confidence interval for a binomial proportion.
 
