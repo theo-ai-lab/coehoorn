@@ -102,6 +102,7 @@ async def _cmd_self_play(args: argparse.Namespace) -> int:
                 rnd = await live_self_play_round(
                     seeds, agent, rubric=rubric, rules=rules,
                     trust_gold=(cases, rubric, rules),
+                    mutation_score_floor=args.mutation_score_floor,
                     n_turns=args.turns, k=args.k,
                     guide_accept_threshold=args.guide_accept_threshold,
                 )

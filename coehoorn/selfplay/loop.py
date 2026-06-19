@@ -450,6 +450,7 @@ async def live_self_play_round(
     n_turns: int = 4,
     k: int = 1,
     guide_accept_threshold: float = 0.25,
+    mutation_score_floor: float = 0.5,
 ) -> SelfPlayRound:
     """LIVE measured run: live Opus conjecturer + live Sonnet judge. NEEDS A KEY.
 
@@ -477,5 +478,6 @@ async def live_self_play_round(
         n_turns=n_turns,
         k=k,
         guide_accept_threshold=guide_accept_threshold,
+        mutation_score_floor=mutation_score_floor,
         is_live=True,
     )
