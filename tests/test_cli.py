@@ -121,7 +121,7 @@ def test_version_flag_prints_package_version(capsys):
 
 
 # --------------------------------------------------------------------------- #
-# devex-review fix: meta-eval / compare give a clean error (exit 2), not a
+# Robustness: meta-eval / compare give a clean error (exit 2), not a
 # raw traceback, on a bad path or malformed input — matching the new commands.
 # --------------------------------------------------------------------------- #
 def test_meta_eval_clean_error_on_missing_rubric(capsys):
