@@ -1,5 +1,7 @@
 # Coehoorn — Build State (snapshot: 2026-06-13)
 
+> Counts and module lists below are as of the snapshot date; see the README for current.
+
 A plain-language status of where the build stands right now. If you've never heard
 of this project, start at §0; if you just want "is it done and what's left," read §1
 and §7.

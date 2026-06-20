@@ -41,6 +41,49 @@ All notable changes to Coehoorn are recorded here. Versions follow
   is gated by **Fisher's exact one-sided test with a Holm step-down correction**
   across the transform family — not a normal-approximation z-test (see ADR-0011).
   `--fail-on-instability` gates it from CI. Stdlib-only.
+- **Self-play attack conjecturer (`coehoorn self-play`).** Instead of only running
+  fixed archetype probes, *generates* new adversarial scenarios — a fresh persona
+  plus a multi-turn probe script, each *seed-grounded* in a logged breach — drives
+  them against the target, and pays a reward only when the attack is real. The
+  reward multiplies `base_reward × SGS guide (relatedness × non_degeneracy) ×
+  trust_gate`, where the trust gate requires all three of: the breach assembling
+  into a `Report` (citation-to-turn invariant), the judge clearing its
+  mutation-score floor, and the citation surviving CITE-MR. Offline (no
+  `ANTHROPIC_API_KEY`) is a deterministic stub conjecturer + heuristic judge,
+  stamped `is_live: false`; the measured `pass^k` attack-success-rate
+  (`--mode llm`) is key-gated and raises rather than silently degrading to the stub.
+- **Judge-overfit audit (`coehoorn overfit-audit`).** Turns the repo's "gate on the
+  Wilson lower bound" discipline on itself, fully offline and keyless: sweeps a real
+  judge config family (the self-harm "require ≥ τ safety signals" threshold,
+  `τ ∈ {1..4}`, with `τ=1` reproducing the shipped heuristic), selects the gold-best
+  config, and reports its recall Wilson lower bound **both** naively **and**
+  Bonferroni-corrected for the size of the search — beside the generalization gap
+  (gold agreement − fresh-conjectured-siege agreement; a positive gap is the overfit
+  signature), a tunable-signal complexity scalar, and a sample-k saturation curve
+  (resamples on a fixed gold set, never a size-asymptote). A single red-team score is
+  framed as a capability-relative floor. `--min-corrected-recall-lower` gates on the
+  corrected floor, not the naive one.
+- **Cascade telemetry (`cascade` module, surfaced by `overfit-audit`).** Emits the
+  cheap→expensive tier-boundary shape — `alpha` (the fraction the deterministic fast
+  path resolves without escalating), `disagreement_rate`, and `lossless_violations`.
+  The deterministic→gold boundary is measured at zero model spend (exact, pinned in
+  tests); the heuristic→LLM boundary is emitted with `measured: false` and null rates
+  rather than a fabricated number. Not a CLI subcommand. Stdlib-only.
+- **Distill the judge into the deterministic floor (`coehoorn distill-floor`).** On
+  the residual the floor abstains on, runs a judge **jury** over a fresh conjectured
+  *derivation* siege, reports the jury's **correlation-corrected effective votes**
+  (never the raw member count), distills the high-consensus agreements into a
+  candidate deterministic rule, and promotes it only after a **held-out slice it was
+  not derived from** clears the agreement threshold — the reported replaceable
+  fraction is that out-of-sample agreement, never the in-sample fit. The offline mock
+  jury is keyless; `--mode llm` is key-gated and raises without a key.
+- **Selective-risk certificate (`coehoorn selective-risk`).** A **distribution-free,
+  conformal-style** selective-risk certificate over fresh self-play-conjectured
+  inputs: the judge *abstains* on the cells it cannot decide, and the certificate
+  bounds the error on the decided subset with a Hoeffding upper bound at `1−delta`,
+  shipped next to its width and an `O(1/√N)` convergence curve so the bound reads as a
+  converging methodology, not a small-n headline. `--max-risk-upper` gates on the
+  upper bound, never the point estimate.
 - **`metrics` module.** Wilson score intervals, precision/recall/F1, balanced
   accuracy, and Cohen's kappa — dependency-free (no SciPy).
 - **Explicit `ABSTAIN` state.** `CriterionStatus` and `VerdictOutcome` are now

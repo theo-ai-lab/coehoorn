@@ -262,7 +262,10 @@ naively and **Bonferroni-corrected for the size of the search** — because a bo
 that spends none of its error budget on the search advertises a floor the data does
 not support:
 
-```
+```bash
+$ uv run coehoorn overfit-audit \
+    --gold tests/gold/judge_gold.jsonl \
+    --rubric examples/rubric_coach.yaml
 SELECTED safety_tau=3  (recall 0.800, balanced-acc 0.686)
 recall Wilson lower: naive(m=1) 0.376  ->  Bonferroni(alpha/4) 0.292   (search shaved 0.083 off the floor, n=5)
 generalization gap (gold agreement − fresh-conjectured-siege agreement, n_holdout=15):
