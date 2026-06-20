@@ -48,11 +48,17 @@ class HttpAgentAdapter:
         endpoint: str,
         timeout: float = 30.0,
         client: httpx.AsyncClient | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.timeout = timeout
         self._client = client
         self._owns_client = client is None
+        # Optional auth headers for a real external target (e.g. a bearer
+        # token). Empty/None means "send nothing extra" — identical wire
+        # bytes to the local-stub path. Resolve these via coehoorn.config so
+        # secrets stay out of the command line.
+        self.headers = dict(headers) if headers else None
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -60,9 +66,13 @@ class HttpAgentAdapter:
         return self._client
 
     async def __call__(self, conversation: list[dict]) -> str:
-        resp = await self._get_client().post(
-            self.endpoint, json={"conversation": conversation}
-        )
+        # Pass `headers` only when set so the no-auth path is byte-identical to
+        # before (and stays compatible with injected clients whose `.post`
+        # doesn't take a headers kwarg).
+        post_kwargs: dict = {"json": {"conversation": conversation}}
+        if self.headers:
+            post_kwargs["headers"] = self.headers
+        resp = await self._get_client().post(self.endpoint, **post_kwargs)
         resp.raise_for_status()
         data = resp.json()
         reply = data.get("reply")

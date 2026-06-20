@@ -255,7 +255,7 @@ installed (a clean-interpreter test enforces it):
 - **Deterministic and private.** Heuristic mode is byte-reproducible; no telemetry, no
   external callbacks. Outbound network is only the agent endpoint and, in LLM mode,
   `api.anthropic.com`.
-- **Tested at the boundaries.** 186 tests (184 fully offline + deterministic, 2 gated
+- **Tested at the boundaries.** 318 tests (316 fully offline + deterministic, 2 gated
   behind the extras) — schema invariants, the report's design constraints, the meta-eval
   numbers, the mutation score's load-bearing/confirmatory split, the metamorphic
   Fisher+Holm gate, byte-reproducibility, the network adapter, and the tool-policy checks.
@@ -267,12 +267,16 @@ installed (a clean-interpreter test enforces it):
 ```
 coehoorn/  (modules listed roughly largest-first)
   metamorphic.py     CITE-MR — verdict + citation stability under transforms (Fisher+Holm)
+  distill.py         promote the LLM judge's residual into the deterministic floor (effective-vote jury gate)
+  overfit.py         judge-overfit audit — multiplicity-corrected floor + generalization gap
   mutants.py         Judge Mutation Score — plant broken judges, prove the gold catches them
   report_html.py     the self-contained Siege Survey (no JS, computed SVG)
+  selective_risk.py  distribution-free selective-risk certificate for the judge on unseen sieges
   schemas.py         the Pydantic wire contract — the trust boundary (+ ToolCall)
   judge.py           heuristic + LLM judges; text + tool-policy (ASI02/ASI03)
   cli.py             run / compare / meta-eval / mutation-score / metamorphic
   meta_eval.py       audit the auditor — score the judge vs gold; + gold_cited_turn anchor
+  cascade.py         cheap→expensive judging-tier telemetry (alpha / disagreement / lossless)
   personas.py        heuristic + LLM adversarial persona generators
   conversation.py    async, bounded-concurrency runner (captures tool calls)
   metrics.py         Wilson intervals, precision/recall/F1/specificity/balanced/kappa
@@ -285,7 +289,7 @@ coehoorn/  (modules listed roughly largest-first)
 apps/stub-agent/     a deliberately-flawed local fixture (LOCAL ONLY) to test against
 examples/            sample rubric + tool-policy rubric + expected-failures fixture
 tests/gold/          the frozen, hand-labeled judge gold set (+ gold_cited_turn anchors)
-tests/               189 tests (187 offline, 2 gated)
+tests/               318 tests (316 offline, 2 gated)
 ARCHITECTURE.md      full data-flow walkthrough + the trust boundary
 docs/                EVAL, coverage-map, ADRs, one-page brief
 runs/sample/         committed chat sample (byte-reproducible)
@@ -334,13 +338,20 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 
 ## 16. Status — where the build stands today
 
-- **Done & green.** v0.2. 189 tests (187 offline + deterministic), lint clean,
+- **Done & green.** v0.2. 318 tests (316 offline + deterministic), lint clean,
   byte-reproducible samples.
 - **Recently added.** A citation-integrity suite — `mutation-score` (mutation-test the
   gold set; honest 4/6) and `metamorphic`/CITE-MR (verdict + citation stability under
   semantics-preserving transforms, Fisher+Holm gate), both stdlib-only with zero new
   runtime deps; tool-use attack surface (OWASP Agentic ASI02/ASI03); SARIF + JUnit CI
-  outputs + a GitHub Action; a hardened network adapter.
+  outputs + a GitHub Action; a hardened network adapter. On top of that, a meta-eval
+  overfit surface: `overfit-audit` (multiplicity-corrected Wilson floor + generalization
+  gap + sample-k saturation), `cascade` telemetry (cheap→expensive judging-tier
+  alpha/disagreement/lossless), `distill-floor` (promote a judge jury's high-consensus
+  residual into a holdout-gated deterministic rule, reported in correlation-corrected
+  effective votes), and a `selective-risk` certificate (distribution-free conformal bound
+  for the judge on unseen sieges) — all offline, with the distillation jury falling back
+  to a deterministic mock when no key is present.
 - **The one honest gap.** LLM mode (Opus personas + Sonnet judge) runs the full path
   end-to-end with a key (non-deterministic, not committed as a sample) — but its
   **accuracy is unmeasured**: the LLM judge has not been scored against the gold set,

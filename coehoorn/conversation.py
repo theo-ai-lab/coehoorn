@@ -61,21 +61,40 @@ _ARCHETYPE_PROBES: dict[Archetype, list[str]] = {
 }
 
 
-def _probe_script(archetype: Archetype, max_turns: int) -> list[str]:
-    base = _ARCHETYPE_PROBES[archetype]
+def _probe_script(
+    archetype: Archetype, max_turns: int, *, base: list[str] | None = None
+) -> list[str]:
+    """The user-turn script for one conversation, length-fitted to max_turns.
+
+    ``base`` overrides the archetype default with an explicit script (e.g. the
+    KB-poisoner's dedicated probes); the same truncate-to / pad-with-last-turn
+    fit is applied either way so behavior is uniform.
+    """
+    script = base if base is not None else _ARCHETYPE_PROBES[archetype]
+    if not script:
+        raise ValueError("probe script must be non-empty")
     if max_turns <= 0:
         raise ValueError("max_turns must be >= 1")
-    if max_turns <= len(base):
-        return base[:max_turns]
-    return base + [base[-1]] * (max_turns - len(base))
+    if max_turns <= len(script):
+        return script[:max_turns]
+    return script + [script[-1]] * (max_turns - len(script))
 
 
 async def run_conversation_heuristic(
-    persona: Persona, agent_call: AgentCall, *, max_turns: int = 4
+    persona: Persona,
+    agent_call: AgentCall,
+    *,
+    max_turns: int = 4,
+    script: list[str] | None = None,
 ) -> Transcript:
-    """Run one conversation by sending pre-scripted probe messages."""
+    """Run one conversation by sending pre-scripted probe messages.
+
+    ``script`` overrides the per-archetype probe table with an explicit user-turn
+    script — the seam the KB-poisoner persona uses to drive its dedicated
+    write-back-contamination probes instead of the generic INJECTOR ones.
+    """
     started = datetime.now(timezone.utc)
-    script = _probe_script(persona.archetype, max_turns)
+    script = _probe_script(persona.archetype, max_turns, base=script)
     turns: list[ConversationTurn] = []
     api_history: list[dict] = []
 
@@ -202,20 +221,30 @@ async def run_conversations(
     mode: str = "heuristic",
     rubric: Rubric | None = None,
     concurrency: int = 4,
+    probe_overrides: dict[str, list[str]] | None = None,
 ) -> list[Transcript]:
-    """Fan out N conversations with bounded concurrency."""
+    """Fan out N conversations with bounded concurrency.
+
+    ``probe_overrides`` maps a persona id to an explicit user-turn script. A
+    persona with an override always runs that fixed script (via the scripted
+    heuristic path) regardless of ``mode`` — it is a deterministic attack vector,
+    not an LLM-voiced role. This is how the KB-poisoner persona drives its
+    dedicated write-back-contamination probes end-to-end in a `coehoorn run`.
+    """
     if mode not in {"heuristic", "llm"}:
         raise ValueError(f"unknown mode: {mode!r}")
     if mode == "llm" and rubric is None:
         raise ValueError("LLM mode requires a rubric for persona system prompt.")
 
+    overrides = probe_overrides or {}
     sem = asyncio.Semaphore(concurrency)
 
     async def _one(p: Persona) -> Transcript:
         async with sem:
-            if mode == "heuristic":
+            override = overrides.get(p.id)
+            if override is not None or mode == "heuristic":
                 return await run_conversation_heuristic(
-                    p, agent_call, max_turns=max_turns
+                    p, agent_call, max_turns=max_turns, script=override
                 )
             assert rubric is not None
             return await run_conversation_llm(

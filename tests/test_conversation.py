@@ -54,6 +54,43 @@ async def test_run_conversations_returns_one_transcript_per_persona():
 
 
 @pytest.mark.asyncio
+async def test_probe_overrides_drive_an_explicit_script():
+    # A persona with a probe override runs that exact script; an un-overridden
+    # persona keeps its archetype probes. This is the seam the KB-poisoner uses.
+    personas = generate_personas_heuristic(n=2)
+    script = ["custom one here", "custom two here", "custom three here"]
+    transcripts = await run_conversations(
+        personas, _echo_agent(), max_turns=3, mode="heuristic",
+        probe_overrides={personas[0].id: script},
+    )
+    by_id = {t.persona.id: t for t in transcripts}
+    overridden = [t.content for t in by_id[personas[0].id].turns if t.role == "user"]
+    assert overridden == script
+    other = [t.content for t in by_id[personas[1].id].turns if t.role == "user"]
+    assert other != script
+
+
+@pytest.mark.asyncio
+async def test_probe_override_runs_scripted_even_in_llm_mode(monkeypatch):
+    # An overridden persona is a fixed scripted attack, so it never calls the LLM
+    # persona path even when the run is mode="llm" (no key needed for it).
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    personas = generate_personas_heuristic(n=1)
+    from coehoorn.schemas import Criterion, Rubric
+
+    rubric = Rubric(
+        criteria=[Criterion(id="c", description="d")], overall_pass_threshold=1.0
+    )
+    script = ["only this turn"]
+    transcripts = await run_conversations(
+        personas, _echo_agent(), max_turns=1, mode="llm", rubric=rubric,
+        probe_overrides={personas[0].id: script},
+    )
+    user_turns = [t.content for t in transcripts[0].turns if t.role == "user"]
+    assert user_turns == script
+
+
+@pytest.mark.asyncio
 async def test_run_conversations_rejects_unknown_mode():
     personas = generate_personas_heuristic(n=1)
     with pytest.raises(ValueError, match="unknown mode"):

@@ -1,0 +1,161 @@
+# Lay an adversarial siege against a REAL, external agent — not the bundled
+# stub — and surface the cited breaches where a team already looks: the GitHub
+# Security tab (SARIF) and an at-a-glance PR comment.
+#
+# This is the "point Coehoorn at a real agent" path. The target is configured
+# out-of-band, so nothing about the agent is hardcoded here:
+#
+#   * AGENT_ENDPOINT   (secret OR repo variable) — the agent's chat URL.
+#   * AGENT_API_KEY    (secret, optional) — bearer auth to the target.
+#   * AGENT_AUTH_HEADER(secret, optional) — a raw header line for non-bearer
+#                       auth, e.g. "x-api-key: ...".
+#   * ANTHROPIC_API_KEY(secret, optional) — enables LLM-mode personas+judge;
+#                       absent => deterministic heuristic mode.
+#
+# When AGENT_ENDPOINT is absent (e.g. a fork PR with no secrets) the whole job
+# no-ops gracefully: the guard step reports "not configured" and every real
+# step is skipped, so the check still goes green. Choosing a real endpoint and
+# supplying these keys is the deliberately un-fakeable part — see
+# docs/ENGAGEMENT_TEMPLATE.md.
+name: external-siege
+
+on:
+  workflow_dispatch:
+    inputs:
+      rubric:
+        description: "Rubric YAML to siege with"
+        required: false
+        default: "examples/rubric_coach.yaml"
+      personas:
+        description: "Number of adversarial personas"
+        required: false
+        default: "6"
+      turns:
+        description: "Max turns per conversation"
+        required: false
+        default: "4"
+  pull_request:
+  schedule:
+    # Nightly continuous siege of the configured target (default branch only).
+    - cron: "17 7 * * *"
+
+permissions:
+  contents: read
+  security-events: write   # upload SARIF to the Security tab
+  pull-requests: write     # post the cited-breach summary comment
+
+jobs:
+  external-siege:
+    runs-on: ubuntu-latest
+    env:
+      # A repo VARIABLE is fine for the URL (not secret); a SECRET takes
+      # precedence if both are set.
+      AGENT_ENDPOINT: ${{ secrets.AGENT_ENDPOINT || vars.AGENT_ENDPOINT }}
+      AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}
+      AGENT_AUTH_HEADER: ${{ secrets.AGENT_AUTH_HEADER }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      RUBRIC: ${{ inputs.rubric || 'examples/rubric_coach.yaml' }}
+      PERSONAS: ${{ inputs.personas || '6' }}
+      TURNS: ${{ inputs.turns || '4' }}
+    steps:
+      - name: Check whether a target is configured
+        id: guard
+        run: |
+          if [ -z "${AGENT_ENDPOINT}" ]; then
+            echo "No AGENT_ENDPOINT configured — skipping external siege (no-op)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Target configured; the live siege will run."
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.guard.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.guard.outputs.configured == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Sync (core only — no extras)
+        if: steps.guard.outputs.configured == 'true'
+        run: uv sync
+
+      - name: Lay siege to the external agent — emit SARIF + JUnit
+        if: steps.guard.outputs.configured == 'true'
+        run: |
+          mkdir -p runs/external
+          # Endpoint + auth come from the env (resolved by coehoorn.config), so
+          # no secret ever lands on the command line. --mode auto uses the LLM
+          # when ANTHROPIC_API_KEY is set, else heuristic. Breaches are findings,
+          # not failures (no --fail-on-breach), so the run exits 0 and the SARIF
+          # is always produced for upload.
+          uv run coehoorn run \
+            --rubric "$RUBRIC" \
+            --personas "$PERSONAS" --turns "$TURNS" \
+            --out runs/external --emit sarif,junit \
+            --json | tee runs/external/summary.json
+
+      - name: Upload cited breaches to the Security tab (SARIF)
+        if: steps.guard.outputs.configured == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: runs/external
+
+      - name: Publish the siege as a test report (JUnit)
+        if: always() && steps.guard.outputs.configured == 'true'
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: runs/external/*.junit.xml
+
+      - name: Comment cited breaches on the PR
+        if: always() && github.event_name == 'pull_request' && steps.guard.outputs.configured == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const dir = 'runs/external';
+            const marker = '<!-- coehoorn-external-siege -->';
+
+            const sarifFiles = fs.existsSync(dir)
+              ? fs.readdirSync(dir).filter(f => f.endsWith('.sarif.json'))
+              : [];
+            if (sarifFiles.length === 0) {
+              core.info('No SARIF produced (siege may have failed) — nothing to comment.');
+              return;
+            }
+
+            const sarif = JSON.parse(fs.readFileSync(path.join(dir, sarifFiles[0]), 'utf8'));
+            const results = sarif.runs?.[0]?.results ?? [];
+
+            let body;
+            if (results.length === 0) {
+              body = '### Coehoorn external siege — no breaches\n\n'
+                + 'The target held against every adversarial approach this run.';
+            } else {
+              const rows = results.map(r => {
+                const p = r.properties ?? {};
+                const turn = r.locations?.[0]?.physicalLocation?.region?.startLine ?? '?';
+                const why = (r.message?.text ?? '').trim();
+                return `- **${p.archetype ?? '?'}** / \`${p.persona ?? '?'}\` — `
+                  + `\`${r.ruleId}\` at turn ${turn}: ${why}`;
+              });
+              const archetypes = [...new Set(results.map(r => r.properties?.archetype).filter(Boolean))];
+              body = `### Coehoorn external siege — ${results.length} cited breach(es)\n\n`
+                + `Across archetypes: ${archetypes.map(a => `\`${a}\``).join(', ') || 'n/a'}.\n\n`
+                + rows.join('\n')
+                + '\n\nEvery breach is anchored to the cited transcript turn. '
+                + 'Full results are in the Security tab (SARIF).';
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const full = `${marker}\n${body}`;
+            const existing = (await github.rest.issues.listComments({ owner, repo, issue_number }))
+              .data.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: full });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: full });
+            }

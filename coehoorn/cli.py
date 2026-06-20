@@ -10,6 +10,11 @@
   coehoorn meta-eval --gold tests/gold/judge_gold.jsonl \\
                    --rubric examples/rubric_coach.yaml
 
+  coehoorn self-play --rubric examples/rubric_coach.yaml \\
+                   --gold tests/gold/judge_gold.jsonl \\
+                   --agent http://127.0.0.1:8001/chat \\
+                   --criterion safe_handling_of_self_harm
+
 The CLI is the canonical interface. The HTML report is a side effect of
 `run` and is opened by clicking the printed path; there is no localhost
 server.
@@ -36,6 +41,7 @@ from pydantic import ValidationError
 
 from . import __version__
 from .agent_adapter import HttpAgentAdapter
+from .config import headers_from_env, resolve_endpoint
 from .aggregator import (
     build_report,
     compare_to_expected,
@@ -73,12 +79,29 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     def log(msg: str) -> None:
         print(msg, file=log_stream)
 
+    # Resolve the target endpoint: explicit --agent wins, else AGENT_ENDPOINT /
+    # COEHOORN_AGENT_ENDPOINT from the env (the seam CI uses to inject a
+    # secret/variable). Fail fast and clearly if neither is present.
+    endpoint = resolve_endpoint(args.agent)
+    if not endpoint:
+        print(
+            "error: no target agent endpoint. Pass --agent URL or set "
+            "AGENT_ENDPOINT (see docs/ENGAGEMENT_TEMPLATE.md).",
+            file=sys.stderr,
+        )
+        return 2
+    args.agent = endpoint
+    agent_headers = headers_from_env()
+
     rubric, heuristic_rules = parse_rubric_file(args.rubric)
     allow_llm = bool(os.environ.get("ANTHROPIC_API_KEY"))
     mode = _pick_mode(args.mode, allow_llm)
 
     log(f"mode: {mode}")
     log(f"agent: {args.agent}")
+    if agent_headers:
+        # Confirm auth is wired without ever printing the value.
+        log(f"agent auth: {', '.join(sorted(agent_headers))} header(s) from env")
     log(f"personas: {args.personas} / turns: {args.turns}")
     log(f"rubric: {args.rubric}  (criteria: {len(rubric.criteria)})")
 
@@ -89,10 +112,35 @@ async def _cmd_run(args: argparse.Namespace) -> int:
         personas = generate_personas_heuristic(n=args.personas)
     log(f"generated {len(personas)} personas")
 
-    async with HttpAgentAdapter(args.agent, timeout=args.timeout) as agent:
+    # Opt-in: append the KB-poisoner (write-back contamination) persona and fold
+    # its dedicated probe script + tool-policy/content criteria into this run, so
+    # the agent-write-back surface is exercised end-to-end. Its criteria never
+    # fire on the other personas (their probes miss the keywords / take no
+    # KB-write tool), so this only adds the new face — it changes no other cell.
+    probe_overrides: dict[str, list[str]] | None = None
+    if args.include_kb_poisoner:
+        from .personas_kb import (
+            KB_POISONER_PROBES,
+            kb_poisoner_persona,
+            merge_kb_poisoner_rubric,
+        )
+
+        kb_persona = kb_poisoner_persona(f"p{len(personas):02d}")
+        personas.append(kb_persona)
+        probe_overrides = {kb_persona.id: KB_POISONER_PROBES}
+        rubric, heuristic_rules = merge_kb_poisoner_rubric(rubric, heuristic_rules)
+        log(
+            f"included KB-poisoner persona {kb_persona.id} ({kb_persona.name}); "
+            f"rubric now has {len(rubric.criteria)} criteria"
+        )
+
+    async with HttpAgentAdapter(
+        args.agent, timeout=args.timeout, headers=agent_headers or None
+    ) as agent:
         transcripts = await run_conversations(
             personas, agent, max_turns=args.turns, mode=mode,
             rubric=rubric, concurrency=args.concurrency,
+            probe_overrides=probe_overrides,
         )
     log(f"ran {len(transcripts)} conversations")
 
@@ -259,8 +307,13 @@ def build_parser() -> argparse.ArgumentParser:
     run_p = sub.add_parser("run", help="Run personas against an agent and write a report.")
     run_p.add_argument("--rubric", required=True, help="Path to rubric YAML.")
     run_p.add_argument(
-        "--agent", required=True,
-        help="HTTP endpoint of the target agent (e.g. http://127.0.0.1:8001/chat).",
+        "--agent", default=None,
+        help=(
+            "HTTP endpoint of the target agent (e.g. http://127.0.0.1:8001/chat). "
+            "Falls back to the AGENT_ENDPOINT / COEHOORN_AGENT_ENDPOINT env var "
+            "when omitted, so CI can inject it from a secret/variable. Auth to "
+            "the target is read from AGENT_API_KEY or AGENT_AUTH_HEADER."
+        ),
     )
     run_p.add_argument("--personas", type=int, default=6, help="Number of personas (default 6).")
     run_p.add_argument("--turns", type=int, default=4, help="Max turns per conversation (default 4).")
@@ -279,6 +332,14 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument(
         "--emit", default="",
         help="Comma-separated extra CI outputs: sarif,junit (in addition to json+html).",
+    )
+    run_p.add_argument(
+        "--include-kb-poisoner", dest="include_kb_poisoner", action="store_true",
+        help=(
+            "Append the KB-poisoner (agent write-back contamination) persona and "
+            "fold its dedicated probe script + write-back criteria into the run "
+            "(OWASP LLM01 via the memory/KB surface; ASI02/ASI03 tool policy)."
+        ),
     )
     run_p.set_defaults(_func=lambda a: asyncio.run(_cmd_run(a)))
 
@@ -302,13 +363,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     me_p.set_defaults(_func=_cmd_meta_eval)
 
-    # Citation-integrity suite: each module owns its own subparser surface,
-    # registered here so build_parser() stays the single CLI assembly point.
+    # Citation-integrity suite + self-play: each module owns its own subparser
+    # surface, registered here so build_parser() stays the single CLI assembly
+    # point.
     from .mutants import register_subparser as _register_mutation_score
     from .metamorphic import register_subparser as _register_metamorphic
+    from .overfit import register_subparser as _register_overfit_audit
+    from .distill import register_subparser as _register_distill_floor
+    from .selective_risk import register_subparser as _register_selective_risk
+    from .selfplay.cli import register_subparser as _register_self_play
 
     _register_mutation_score(sub)
     _register_metamorphic(sub)
+    _register_overfit_audit(sub)
+    _register_distill_floor(sub)
+    _register_selective_risk(sub)
+    _register_self_play(sub)
     return p
 
 
