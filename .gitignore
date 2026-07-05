@@ -41,3 +41,5 @@ runs/*
 !runs/sample/**
 !runs/sample-tools/
 !runs/sample-tools/**
+!runs/sample-mcp/
+!runs/sample-mcp/**
