@@ -1076,7 +1076,7 @@ def register_subparser(subparsers: argparse._SubParsersAction) -> None:
     )
     p.add_argument(
         "--jury-models", dest="jury_models",
-        default="claude-sonnet-4-6,claude-opus-4-7,claude-3-5-haiku-latest",
+        default="claude-sonnet-4-6,claude-opus-4-7,claude-haiku-4-5",
         help="Comma-separated models for the live --mode llm jury (one juror each).",
     )
     p.add_argument(
