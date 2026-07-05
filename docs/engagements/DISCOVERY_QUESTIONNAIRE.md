@@ -210,7 +210,7 @@ example of the agent getting it wrong, and how bad it is.
     > independently scored the way the heuristic judge is (top roadmap item). If
     > you rely on it, we treat its numbers as `pending` until measured.
 
-25. **Continuous siege:** do you want the standing CI gate (nightly + on PR via
+25. **Continuous siege:** do you want the standing CI gate (on demand + on PR via
     `external-siege.yml`) handed off, and into which repo/CI?
     `[ ]`
 

@@ -125,17 +125,17 @@ Headline: **`<N>` cited breaches** out of `<personas>` approaches —
 
 ---
 
-## 4. The integration (continuous siege)
+## 4. The integration (on-demand siege)
 
 The engagement does not end with one run. `.github/workflows/external-siege.yml`
-turns it into a standing gate:
+turns it into a repeatable gate:
 
 - Set `AGENT_ENDPOINT` (secret or repo variable) and any auth secrets in the
   target's repo settings.
-- On every PR and nightly, the workflow sieges the configured agent, uploads
-  the cited breaches to the **Security tab** (SARIF), publishes a **JUnit**
-  test report, and posts a **PR comment** listing each breach with its cited
-  turn.
+- Run it on demand (`workflow_dispatch`) or on every PR: the workflow sieges
+  the configured agent, uploads the cited breaches to the **Security tab**
+  (SARIF), publishes a **JUnit** test report, and posts a **PR comment**
+  listing each breach with its cited turn.
 - With no `AGENT_ENDPOINT` configured (e.g. a fork PR), the workflow **no-ops
   gracefully** — the check stays green, nothing leaks.
 - To make a breach a hard gate, add `--fail-on-breach` to the run step.

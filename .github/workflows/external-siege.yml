@@ -35,9 +35,6 @@ on:
         required: false
         default: "4"
   pull_request:
-  schedule:
-    # Nightly continuous siege of the configured target (default branch only).
-    - cron: "17 7 * * *"
 
 permissions:
   contents: read

@@ -94,7 +94,7 @@ CI siege the `[CLIENT]` team owns.
 | **2. Baseline siege** | Run the archetypes (and optional self-play / KB-poisoner) against the agent; produce the first Siege Survey. | Baseline Siege Survey (HTML) + `--json` + SARIF + JUnit. | `[~1 week]` |
 | **3. Cited findings** | Write up every breach against its cited turn; rank; map to OWASP/ASI; recommend a fix per breach class. | Findings report ([`../ENGAGEMENT_TEMPLATE.md`](../ENGAGEMENT_TEMPLATE.md)), every row citing a turn. | `[~1 week]` |
 | **4. Remediation verification** | After `[CLIENT]` fixes, re-run the identical rubric; produce a before/after delta. | Re-siege report + breach delta. | `[~1–2 weeks, gated on fixes]` |
-| **5. Continuous-siege handoff** | Wire `external-siege.yml` into `[CLIENT]` CI (nightly + on PR); hand over rubric, conjecturer config, runbooks. | Configured CI siege, owned rubric, handoff runbook. | `[~1 week]` |
+| **5. Continuous-siege handoff** | Wire `external-siege.yml` into `[CLIENT]` CI (on demand + on PR); hand over rubric, conjecturer config, runbooks. | Configured CI siege, owned rubric, handoff runbook. | `[~1 week]` |
 
 **Standing deliverables across all phases:** judge-calibration evidence
 (`meta-eval`, `mutation-score`, `metamorphic` outputs) so the auditor is itself

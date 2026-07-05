@@ -91,7 +91,7 @@ SOW. Each produces a concrete artifact you keep.
 | 2 | **Baseline siege** | Point Coehoorn at the agent and run the adversarial archetypes across multi-turn conversations. Establishes where the walls stand today. | The first **Siege Survey** (self-contained HTML), plus `--json`, SARIF, and JUnit. |
 | 3 | **Cited findings** | Every breach written up against the exact transcript turn that proves it, ranked, mapped to OWASP/ASI, with a recommended fix per breach class. | The per-engagement findings report ([`../ENGAGEMENT_TEMPLATE.md`](../ENGAGEMENT_TEMPLATE.md)), each row citing a turn. |
 | 4 | **Remediation verification** | After your team fixes, re-run the *same* rubric and confirm the cited breach disappears (or the SARIF result count drops). The fix is verified against the same evidence that found it. | A before/after delta and a re-siege report. |
-| 5 | **Continuous-siege handoff** | Wire the siege into your CI as a standing gate (nightly + on PR), and hand over the rubric, the conjecturer config, and runbooks so your team owns it. | A configured `external-siege.yml`, owned rubric, and a handoff runbook. |
+| 5 | **Continuous-siege handoff** | Wire the siege into your CI as a standing gate (on demand + on PR), and hand over the rubric, the conjecturer config, and runbooks so your team owns it. | A configured `external-siege.yml`, owned rubric, and a handoff runbook. |
 
 Phases 2 and 4 use the identical command and rubric — that symmetry is what
 makes "the breach is gone" a checkable claim rather than an assurance.
