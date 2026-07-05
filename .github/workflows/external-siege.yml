@@ -67,7 +67,7 @@ jobs:
           fi
 
       - if: steps.guard.outputs.configured == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - if: steps.guard.outputs.configured == 'true'
         uses: astral-sh/setup-uv@v5
