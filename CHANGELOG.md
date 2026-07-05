@@ -6,6 +6,22 @@ All notable changes to Coehoorn are recorded here. Versions follow
 ## [0.2.0] — 2026-07-04
 
 ### Added
+- **MCP tool-poisoning attack pack (`coehoorn mcp-siege`).** A runnable,
+  offline, byte-reproducible tool-poisoning fixture — three archetypes, hero
+  first: **rug-pull** (a benign tool whose description mutates malicious
+  mid-session; the flip is cited to its exact turn — the temporal localization a
+  status-only verdict cannot make), **tool-description poisoning** (malicious
+  instructions embedded in a tool's `description` field), and **cross-server
+  shadowing** (a look-alike tool from a second server intercepts a legitimate
+  one). Drives a deterministically-vulnerable agent through an in-process
+  **loopback MCP fixture** — a model of MCP's newline-delimited-JSON stdio
+  transport with no subprocess, no socket, and no `mcp` dependency — so the pack
+  runs keyless. Maps to OWASP Agentic 2026 **ASI04** (Supply Chain), **ASI01**
+  (Goal Hijack), **ASI02** (Tool Misuse), **ASI07** (Insecure Inter-Agent
+  Communication), and **ASI03** (Privilege Abuse); see `docs/coverage-map.md` §5.
+  Ships committed sample reports (`runs/sample-mcp/`) and a rubric
+  (`examples/rubric_mcp.yaml`). The live LLM-victim path is a documented seam,
+  not faked by the stub.
 - **Tool-use attack surface (OWASP Agentic ASI02 / ASI03).** Transcripts now
   capture the agent's tool calls; a rubric can declare `forbidden_tools` (tool
   misuse) and `tool_must_precede` approval/order pairs (privilege bypass), and

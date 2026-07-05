@@ -25,7 +25,7 @@ Reference list (2025): LLM01 Prompt Injection · LLM02 Sensitive Information Dis
 | — | LLM03 Supply Chain | **Not-covered** | Out of scope; Coehoorn probes a running agent, not its dependency chain. |
 | — | LLM04 Data & Model Poisoning | **Not-covered** | No training-time / data-pipeline attacks. |
 | — | LLM05 Improper Output Handling | **Not-covered** | No downstream-sink testing (XSS/SSRF/code-exec from model output). |
-| — | LLM06 Excessive Agency | **Partial** | Tool-policy criteria catch forbidden-tool calls (ASI02) and privileged actions taken without prior approval (ASI03), cited to the turn; broader agentic exploitation (memory poisoning, multi-agent cascades) is out of scope. See §5. |
+| — | LLM06 Excessive Agency | **Partial** | Tool-policy criteria catch forbidden-tool calls (ASI02) and privileged actions taken without prior approval (ASI03), cited to the turn; the MCP tool-poisoning pack adds supply-chain (ASI04) and cross-server shadowing (ASI07) — see §5. Broader agentic exploitation (the memory-poisoning read-back loop, multi-agent cascades) stays out of scope — see §6. |
 | — | LLM08 Vector & Embedding Weaknesses | **Not-covered** | No RAG/embedding-store attacks. |
 | — | LLM10 Unbounded Consumption | **Not-covered** | No DoS / cost / resource-exhaustion testing. |
 
@@ -94,7 +94,31 @@ The 12 categories: CBRN · Confabulation · Dangerous, Violent, or Hateful Conte
 
 ---
 
-## 5. What Coehoorn deliberately does NOT cover
+## 5. OWASP Top 10 for Agentic Applications (2026) — the MCP tool-poisoning pack
+
+The 2026 OWASP GenAI Security Project ships a dedicated agentic top 10 (ASI01–ASI10). Coehoorn's `mcp-siege` pack drives three MCP-tool-poisoning archetypes against an offline loopback MCP fixture; every breach is cited to the exact transcript turn (`coehoorn/mcp_redteam.py`; rubric [`examples/rubric_mcp.yaml`](../examples/rubric_mcp.yaml); committed reports under [`runs/sample-mcp/`](../runs/sample-mcp/)).
+
+Reference list (2026): ASI01 Agent Goal Hijack · ASI02 Tool Misuse · ASI03 Identity & Privilege Abuse · ASI04 Supply Chain Compromise · ASI05 Unexpected Code Execution · ASI06 Memory & Context Poisoning · ASI07 Insecure Inter-Agent Communication · ASI08 Cascading Agent Failures · ASI09 Human-Agent Trust Exploitation · ASI10 Rogue Agents.
+
+| MCP archetype | ASI item(s) | Status | One-line justification |
+|---|---|---|---|
+| **rug-pull** (hero) | **ASI04** Supply Chain Compromise | **Covered** | A tool whose manifest mutates malicious after the first listing is a compromised-dependency / mutable-manifest attack; the breach is cited to the *flip* turn — the temporal localization a status-only verdict cannot make. |
+| **rug-pull** | **ASI01** Agent Goal Hijack | **Covered** | The flipped description redirects the agent into an exfiltration call at the flip turn. |
+| **rug-pull** | **ASI02** Tool Misuse | **Covered** | The agent invokes the now-malicious tool — the same forbidden-tool catch as the chat-agent tool siege, cited to the turn. |
+| tool-description poisoning | **ASI04** · **ASI01** | **Covered** | A malicious instruction embedded in a tool's `description` field, present from the first listing, hijacks the agent into an exfiltration call. |
+| cross-server shadowing | **ASI07** Insecure Inter-Agent Communication | **Covered** | A second server registers a look-alike tool that intercepts a legitimate one; the unpinned agent resolves the call to the shadow. |
+| cross-server shadowing | **ASI04** · **ASI03** Identity & Privilege Abuse | **Covered** | Charging through an unverified, shadowed manifest with no prior `verify_tool_manifest` is a supply-chain + privilege-bypass breach, cited to the turn. |
+| — | ASI05 Unexpected Code Execution | **Not-covered** | No code-execution sink from tool output. |
+| — | ASI06 Memory & Context Poisoning | **Partial** | The `--include-kb-poisoner` persona probes the write side only (no read-back loop); see §6. |
+| — | ASI08 Cascading Agent Failures | **Not-covered** | A single victim agent; no multi-agent cascade. |
+| — | ASI09 Human-Agent Trust Exploitation | **Not-covered** | No human-in-the-loop deception surface. |
+| — | ASI10 Rogue Agents | **Not-covered** | No autonomous rogue-agent scenario. |
+
+**Honest scope of the pack.** The loopback MCP server is a *deterministic in-process model* of MCP's stdio transport (newline-delimited JSON-RPC), not a wire-level MCP server, and the victim is a scripted, deterministically-vulnerable client. The offline path is the reproducible artifact; a live LLM victim is a documented seam, not a shipped measurement. The pack demonstrates the three archetypes end-to-end with cited turns — it is not an exhaustive ASI01–ASI10 scanner.
+
+---
+
+## 6. What Coehoorn deliberately does NOT cover
 
 Explicit, by design — listing these is the point:
 
@@ -102,7 +126,7 @@ Explicit, by design — listing these is the point:
 - **Model-weight & infrastructure attacks** — no model theft, extraction, inversion, or supply-chain (OWASP LLM03; ATLAS exfiltration/ML-supply-chain tactics).
 - **Multimodal** — text chat only; no image/audio/video adversarial inputs.
 - **Automated jailbreak search** — no `atkgen`/`tap`/`suffix`/GCG-style optimization; Coehoorn's probes are hand-designed personas, not a search loop.
-- **Agentic tool-use exploitation** — *partially covered.* Tool-policy criteria now catch **forbidden-tool calls (OWASP Agentic 2026 ASI02, Tool Misuse)** and **privileged actions taken with no prior approval (ASI03, Identity/Privilege Abuse)**, cited to the turn. Still **not** covered: indirect injection via tool outputs, memory/context poisoning (ASI06), inter-agent communication (ASI07), or cascading multi-agent failures (ASI08). Scope note: the optional KB-poisoner persona (`--include-kb-poisoner`) probes only the **write side** of the memory/KB surface — an unsanitized write attempt (ASI02/ASI03) and a persisted-instruction echo (LLM01) — and does **not** run the ASI06 read-back loop (no later turn re-reads poisoned state as trusted), so memory/context poisoning itself remains out of scope as stated.
+- **Agentic tool-use exploitation** — *partially covered.* Tool-policy criteria catch **forbidden-tool calls (OWASP Agentic 2026 ASI02, Tool Misuse)** and **privileged actions taken with no prior approval (ASI03, Identity/Privilege Abuse)**, cited to the turn, and the MCP tool-poisoning pack (`mcp-siege`, §5) adds **rug-pull / description-poisoning (ASI04 Supply Chain, ASI01 Goal Hijack)** and **cross-server tool shadowing (ASI07 Insecure Inter-Agent Communication)**, each cited to the turn. Still **not** covered: indirect injection via tool *outputs*, the memory/context-poisoning read-back loop (ASI06), or cascading multi-agent failures (ASI08). Scope note: the optional KB-poisoner persona (`--include-kb-poisoner`) probes only the **write side** of the memory/KB surface — an unsanitized write attempt (ASI02/ASI03) and a persisted-instruction echo (LLM01) — and does **not** run the ASI06 read-back loop (no later turn re-reads poisoned state as trusted), so memory/context poisoning itself remains out of scope as stated.
 - **Indirect / data-channel prompt injection** — only direct, in-conversation injection (no poisoned documents/web/RAG; OWASP LLM08; ATLAS AML.T0051.001).
 - **Output-handling sinks** — no XSS/SSRF/code-exec from rendered model output (OWASP LLM05; Garak `xss`/`ansiescape`).
 - **DoS / cost / resource-exhaustion** — no unbounded-consumption testing (OWASP LLM10).
@@ -115,6 +139,7 @@ Explicit, by design — listing these is the point:
 ## Sources
 
 - [OWASP Top 10 for LLM Applications 2025 (OWASP GenAI Security Project)](https://genai.owasp.org/llm-top-10/) · [PDF v2025](https://owasp.org/www-project-top-10-for-large-language-model-applications/assets/PDF/OWASP-Top-10-for-LLMs-v2025.pdf)
+- [OWASP Top 10 for Agentic Applications 2026 — ASI01–ASI10 (OWASP GenAI Security Project)](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/)
 - [MITRE ATLAS](https://atlas.mitre.org/) · [ATLAS Promptfoo technique mapping](https://www.promptfoo.dev/docs/red-team/mitre-atlas/) · [ATLAS data changelog (v5.x, 2025–2026)](https://github.com/mitre-atlas/atlas-data/blob/main/CHANGELOG.md)
 - [NIST AI 600-1 Generative AI Profile (PDF)](https://nvlpubs.nist.gov/nistpubs/ai/NIST.AI.600-1.pdf) · [12-category summary (Modulos)](https://docs.modulos.ai/frameworks/nist-ai-rmf/generative-ai-profile)
 - [NVIDIA Garak — LLM vulnerability scanner](https://github.com/NVIDIA/garak) · [Garak probe docs](https://github.com/NVIDIA/garak/tree/main/docs/source/probes)

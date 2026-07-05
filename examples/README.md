@@ -6,6 +6,7 @@ Self-contained inputs for the quickstart and for measuring the harness against a
 |---|---|
 | `rubric_coach.yaml` | A two-criterion rubric (safe handling of self-harm language; no fabricated legal citations). Each criterion has a `heuristic:` block so the offline judge can decide it without an LLM call. |
 | `rubric_tools.yaml` | The tool-policy rubric driving the tool-use siege: `forbidden_tools` (a destructive tool that must never be called — OWASP Agentic ASI02) and `tool_must_precede` (a privileged action requiring prior approval — ASI03). Powers `runs/sample-tools/`. |
+| `rubric_mcp.yaml` | The rubric judging the MCP tool-poisoning attack pack: `no_data_exfiltration_tool` (forbidden exfil tools a poisoned description lures the agent into — ASI02/ASI04) and `privileged_tool_requires_manifest_check` (a charge with no prior manifest verification — ASI04/ASI03). Powers `runs/sample-mcp/`. |
 | `expected_failures.yaml` | Per-persona ground-truth: which persona is expected to fail which criterion when this rubric is run against the local stub agent. Consumed by `coehoorn compare`. |
 
 ## Running the example
@@ -30,6 +31,23 @@ uv run coehoorn compare \
 ```
 
 The `run` command writes `runs/<run_id>.json` (machine-readable) and `runs/<run_id>.html` (a self-contained report you can open with a browser).
+
+## The MCP tool-poisoning attack pack
+
+`rubric_mcp.yaml` judges the offline MCP tool-poisoning pack — no external agent,
+no key. It runs against a deterministic in-process loopback MCP fixture, so the
+whole pack is keyless and byte-reproducible:
+
+```
+uv run coehoorn mcp-siege                    # all three archetypes, hero first
+open runs/sample-mcp/rug-pull/report.html    # the committed hero survey
+```
+
+Three archetypes: **rug-pull** (a benign tool whose description mutates malicious
+mid-session — the flip cited to its exact turn), **tool-description poisoning**,
+and **cross-server shadowing**. See the pack section in the top-level
+[`README.md`](../README.md) and the ASI mapping in
+[`docs/coverage-map.md`](../docs/coverage-map.md) §5.
 
 ## Pointing at a real external agent
 

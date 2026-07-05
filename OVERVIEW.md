@@ -254,7 +254,7 @@ installed (a clean-interpreter test enforces it):
 - **Deterministic and private.** Heuristic mode is byte-reproducible; no telemetry, no
   external callbacks. Outbound network is only the agent endpoint and, in LLM mode,
   `api.anthropic.com`.
-- **Tested at the boundaries.** 318 tests (316 fully offline + deterministic, 2 gated
+- **Tested at the boundaries.** 341 tests (339 fully offline + deterministic, 2 gated
   behind the extras) — schema invariants, the report's design constraints, the meta-eval
   numbers, the mutation score's load-bearing/confirmatory split, the metamorphic
   Fisher+Holm gate, byte-reproducibility, the network adapter, and the tool-policy checks.
@@ -273,7 +273,8 @@ coehoorn/  (modules listed roughly largest-first)
   selective_risk.py  distribution-free selective-risk certificate for the judge on unseen sieges
   schemas.py         the Pydantic wire contract — the trust boundary (+ ToolCall)
   judge.py           heuristic + LLM judges; text + tool-policy (ASI02/ASI03)
-  cli.py             run / compare / meta-eval / mutation-score / metamorphic
+  mcp_redteam.py     MCP tool-poisoning pack — loopback fixture + rug-pull / description-poisoning / cross-server-shadowing
+  cli.py             run / compare / meta-eval / mutation-score / metamorphic / mcp-siege
   meta_eval.py       audit the auditor — score the judge vs gold; + gold_cited_turn anchor
   cascade.py         cheap→expensive judging-tier telemetry (alpha / disagreement / lossless)
   personas.py        heuristic + LLM adversarial persona generators
@@ -286,13 +287,14 @@ coehoorn/  (modules listed roughly largest-first)
   mcp_server.py      optional: MCP server exposing a siege as a tool
   agent_adapter.py   HTTP / callable adapters (one reused client; AgentReply w/ tools)
 apps/stub-agent/     a deliberately-flawed local fixture (LOCAL ONLY) to test against
-examples/            sample rubric + tool-policy rubric + expected-failures fixture
+examples/            sample rubric + tool-policy rubric + MCP-poisoning rubric + expected-failures fixture
 tests/gold/          the frozen, hand-labeled judge gold set (+ gold_cited_turn anchors)
-tests/               318 tests (316 offline, 2 gated)
+tests/               341 tests (339 offline, 2 gated)
 ARCHITECTURE.md      full data-flow walkthrough + the trust boundary
 docs/                EVAL, coverage-map, ADRs, one-page brief
 runs/sample/         committed chat sample (byte-reproducible)
 runs/sample-tools/   committed tool-siege sample (catches ASI02/ASI03)
+runs/sample-mcp/     committed MCP tool-poisoning pack (rug-pull cites the flip turn)
 ```
 
 ---
@@ -337,7 +339,7 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 
 ## 16. Status — where the build stands today
 
-- **Done & green.** v0.2. 318 tests (316 offline + deterministic), lint clean,
+- **Done & green.** v0.2. 341 tests (339 offline + deterministic), lint clean,
   byte-reproducible samples.
 - **Recently added.** A citation-integrity suite — `mutation-score` (mutation-test the
   gold set; honest 4/6) and `metamorphic`/CITE-MR (verdict + citation stability under
