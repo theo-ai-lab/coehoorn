@@ -3,7 +3,6 @@
 A granular walkthrough of the whole project: what it is (in plain English first),
 how every piece works, the engineering decisions behind it, and exactly where the
 build stands today. The [`README.md`](./README.md) is the pitch; this is the map.
-(For a status-only snapshot, see [`BUILD_STATE.md`](./BUILD_STATE.md).)
 
 ---
 
