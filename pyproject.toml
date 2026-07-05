@@ -2,7 +2,20 @@
 name = "coehoorn"
 version = "0.2.0"
 description = "Local adversarial simulation harness for chat and tool-using agents: rubric in, ranked failure report with cited transcript evidence out."
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Coehoorn contributors" }]
+keywords = ["red-team", "adversarial", "llm", "agents", "evaluation", "safety"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Security",
+]
 dependencies = [
     "anthropic>=0.97.0",
     "httpx>=0.28.1",
@@ -10,6 +23,11 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "pyyaml>=6.0.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/theo-ai-lab/coehoorn"
+Repository = "https://github.com/theo-ai-lab/coehoorn"
+Issues = "https://github.com/theo-ai-lab/coehoorn/issues"
 
 [project.optional-dependencies]
 # Lazy extras: neither is imported on the core path. See ADRs.

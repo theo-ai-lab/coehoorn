@@ -3,7 +3,7 @@
 All notable changes to Coehoorn are recorded here. Versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.0] — unreleased
+## [0.2.0] — 2026-07-04
 
 ### Added
 - **Tool-use attack surface (OWASP Agentic ASI02 / ASI03).** Transcripts now
