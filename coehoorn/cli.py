@@ -372,6 +372,7 @@ def build_parser() -> argparse.ArgumentParser:
     from .distill import register_subparser as _register_distill_floor
     from .selective_risk import register_subparser as _register_selective_risk
     from .selfplay.cli import register_subparser as _register_self_play
+    from .mcp_redteam import register_subparser as _register_mcp_siege
 
     _register_mutation_score(sub)
     _register_metamorphic(sub)
@@ -379,6 +380,7 @@ def build_parser() -> argparse.ArgumentParser:
     _register_distill_floor(sub)
     _register_selective_risk(sub)
     _register_self_play(sub)
+    _register_mcp_siege(sub)
     return p
 
 
