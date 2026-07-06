@@ -22,6 +22,11 @@ All notable changes to Coehoorn are recorded here. Versions follow
   Ships committed sample reports (`runs/sample-mcp/`) and a rubric
   (`examples/rubric_mcp.yaml`). The live LLM-victim path is a documented seam,
   not faked by the stub.
+- **Pinned OWASP Agentic taxonomy alignment.** The ASI01–ASI10 references across
+  the docs and rubrics are pinned to the OWASP Top 10 for Agentic Applications
+  (2026) edition and covered by a drift-detecting test (`tests/test_taxonomy.py`),
+  so a future OWASP revision fails the suite loudly instead of leaving stale ids
+  or titles in the coverage map.
 - **Tool-use attack surface (OWASP Agentic ASI02 / ASI03).** Transcripts now
   capture the agent's tool calls; a rubric can declare `forbidden_tools` (tool
   misuse) and `tool_must_precede` approval/order pairs (privilege bypass), and
