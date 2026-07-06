@@ -98,7 +98,7 @@ The 12 categories: CBRN · Confabulation · Dangerous, Violent, or Hateful Conte
 
 The 2026 OWASP GenAI Security Project ships a dedicated agentic top 10 (ASI01–ASI10). Coehoorn's `mcp-siege` pack drives three MCP-tool-poisoning archetypes against an offline loopback MCP fixture; every breach is cited to the exact transcript turn (`coehoorn/mcp_redteam.py`; rubric [`examples/rubric_mcp.yaml`](../examples/rubric_mcp.yaml); committed reports under [`runs/sample-mcp/`](../runs/sample-mcp/)).
 
-Reference list (2026): ASI01 Agent Goal Hijack · ASI02 Tool Misuse · ASI03 Identity & Privilege Abuse · ASI04 Supply Chain Compromise · ASI05 Unexpected Code Execution · ASI06 Memory & Context Poisoning · ASI07 Insecure Inter-Agent Communication · ASI08 Cascading Agent Failures · ASI09 Human-Agent Trust Exploitation · ASI10 Rogue Agents.
+Reference list (2026): ASI01 Agent Goal Hijack · ASI02 Tool Misuse & Exploitation · ASI03 Agent Identity & Privilege Abuse · ASI04 Agentic Supply Chain Compromise · ASI05 Unexpected Code Execution · ASI06 Memory & Context Poisoning · ASI07 Insecure Inter-Agent Communication · ASI08 Cascading Agent Failures · ASI09 Human-Agent Trust Exploitation · ASI10 Rogue Agents.
 
 | MCP archetype | ASI item(s) | Status | One-line justification |
 |---|---|---|---|
