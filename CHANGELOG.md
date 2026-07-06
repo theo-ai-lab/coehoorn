@@ -27,6 +27,18 @@ All notable changes to Coehoorn are recorded here. Versions follow
   (2026) edition and covered by a drift-detecting test (`tests/test_taxonomy.py`),
   so a future OWASP revision fails the suite loudly instead of leaving stale ids
   or titles in the coverage map.
+- **Plimsoll trace export (same-org dogfooding).** `coehoorn/trace_export.py`
+  converts a finished siege into [Plimsoll](https://github.com/theo-ai-lab/plimsoll)'s
+  native trace format — plain JSON, stdlib-only, no new dependency — so a
+  second, span-level policy gate maintained in the same org can independently
+  re-derive the verdict from the raw run record. Ships the committed export of
+  the tool-siege sample (`runs/sample-tools/traces/`, byte-repro gated), a
+  policy mirroring `rubric_tools.yaml` (`examples/plimsoll_policy_tools.json`),
+  a differential test (the planted breaches must fail the gate; a compliant
+  twin must pass it — skipped when plimsoll isn't installed), and a manual-only
+  agreement workflow (`.github/workflows/trace-gate.yml`) to be activated once
+  Plimsoll ships on PyPI. Span timing in exported traces is synthetic-ordinal
+  (turn order, not latency) and labeled as such in the trace metadata.
 - **Tool-use attack surface (OWASP Agentic ASI02 / ASI03).** Transcripts now
   capture the agent's tool calls; a rubric can declare `forbidden_tools` (tool
   misuse) and `tool_must_precede` approval/order pairs (privilege bypass), and

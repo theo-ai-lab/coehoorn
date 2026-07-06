@@ -72,6 +72,7 @@ output, and is independently testable. The whole thing fits in one head.
 | `cli.py` | `coehoorn run` / `compare` / `meta-eval` / `mutation-score` / `metamorphic` / `overfit-audit` / `distill-floor` / `selective-risk` / `self-play`. argparse; `--json`, opt-in gates `--fail-on-breach` / `--min-score` / `--fail-on-instability` / `--min-corrected-recall-lower` / `--min-replaceable-fraction` / `--max-risk-upper`. The extension subcommands self-register via `register_subparser`. |
 | `mcp_server.py` | *Optional extra.* MCP server exposing a siege as a tool. Lazily imported. |
 | `inspect_export.py` | *Optional extra.* Report → Inspect AI `EvalLog`. Lazily imported, fail-loud on schema drift. |
+| `trace_export.py` | Export a Report's transcripts as Plimsoll native traces — the same-org dogfooding seam. Plain JSON out, stdlib-only, never imports plimsoll (the gate runs where plimsoll is installed: `tests/test_trace_export.py`, `.github/workflows/trace-gate.yml`). Span timing is synthetic-ordinal (turn order, not latency) and the trace metadata says so. |
 
 ## The trust boundary
 

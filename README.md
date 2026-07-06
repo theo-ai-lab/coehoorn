@@ -6,7 +6,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Runtime deps: 5](https://img.shields.io/badge/runtime%20deps-5-informational)
 ![Offline · no telemetry](https://img.shields.io/badge/offline-no%20telemetry-success)
-![Tests: 344 offline](https://img.shields.io/badge/tests-344%20offline-success)
+![Tests: 346 offline](https://img.shields.io/badge/tests-346%20offline-success)
 
 **The problem.** You're shipping a chat or tool-using agent. It passes unit tests —
 then in a real multi-turn conversation it caves under pressure, fabricates a
@@ -510,6 +510,16 @@ Coehoorn cedes attack *breadth* on purpose and owns verdict *integrity*.
   must resolve against the linked transcript or the object won't construct.
 - **Inspect AI** (UK AISI) is the standard eval *harness/viewer*. Coehoorn
   complements it — `coehoorn[inspect]` exports a siege to an Inspect `EvalLog`.
+- **Plimsoll** (same org — this is dogfooding, not an external endorsement) is a
+  span-level trace/policy gate for tool-using agents. `coehoorn/trace_export.py`
+  converts a siege into Plimsoll's native traces (committed under
+  [`runs/sample-tools/traces/`](runs/sample-tools/traces/)), so a second,
+  independent analyzer re-derives the verdict from the raw run record: on the
+  flawed demo agent, Plimsoll's policy
+  ([`examples/plimsoll_policy_tools.json`](examples/plimsoll_policy_tools.json))
+  flags the same forbidden `delete_account` call and approval-less refund the
+  judge cites. `.github/workflows/trace-gate.yml` runs the agreement check
+  (manual-only until Plimsoll ships on PyPI).
 
 ## Optional extras
 
@@ -545,6 +555,7 @@ coehoorn/
   selfplay/         # seed-grounded attack conjecturer + SGS guide + gated self-play loop
   report_html.py    # the self-contained Siege Survey (no JS, no assets)
   cli.py            # coehoorn run / compare / meta-eval / mutation-score / metamorphic / overfit-audit / distill-floor / selective-risk / self-play / mcp-siege
+  trace_export.py   # export a siege as Plimsoll traces (plain JSON, no dependency)
   mcp_server.py     # optional: MCP server (extra)
   inspect_export.py # optional: Inspect AI EvalLog export (extra)
 ARCHITECTURE.md     # full data-flow walkthrough + the trust boundary

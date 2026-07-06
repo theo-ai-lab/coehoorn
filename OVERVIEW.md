@@ -254,8 +254,9 @@ installed (a clean-interpreter test enforces it):
 - **Deterministic and private.** Heuristic mode is byte-reproducible; no telemetry, no
   external callbacks. Outbound network is only the agent endpoint and, in LLM mode,
   `api.anthropic.com`.
-- **Tested at the boundaries.** 346 tests (344 fully offline + deterministic, 2 gated
-  behind the extras) — schema invariants, the report's design constraints, the meta-eval
+- **Tested at the boundaries.** 350 tests (346 fully offline + deterministic, 2 gated
+  behind the extras, 2 behind an installed plimsoll) — schema invariants, the report's
+  design constraints, the meta-eval
   numbers, the mutation score's load-bearing/confirmatory split, the metamorphic
   Fisher+Holm gate, byte-reproducibility, the network adapter, and the tool-policy checks.
 
@@ -282,18 +283,19 @@ coehoorn/  (modules listed roughly largest-first)
   metrics.py         Wilson intervals, precision/recall/F1/specificity/balanced/kappa
   aggregator.py      build Report, compare-to-expected grid, timestamp pinning
   outputs.py         SARIF 2.1.0 + JUnit XML (stdlib)
+  trace_export.py    export a siege as Plimsoll traces (same-org gate; plain JSON, no dependency)
   inspect_export.py  optional: Report → Inspect AI EvalLog
   rubric_parser.py   YAML → Rubric + heuristic rules (text + tool policy)
   mcp_server.py      optional: MCP server exposing a siege as a tool
   agent_adapter.py   HTTP / callable adapters (one reused client; AgentReply w/ tools)
 apps/stub-agent/     a deliberately-flawed local fixture (LOCAL ONLY) to test against
-examples/            sample rubric + tool-policy rubric + MCP-poisoning rubric + expected-failures fixture
+examples/            sample rubric + tool-policy rubric + MCP-poisoning rubric + expected-failures fixture + Plimsoll policy
 tests/gold/          the frozen, hand-labeled judge gold set (+ gold_cited_turn anchors)
-tests/               346 tests (344 offline, 2 gated)
+tests/               350 tests (346 offline, 4 gated)
 ARCHITECTURE.md      full data-flow walkthrough + the trust boundary
 docs/                EVAL, coverage-map, ADRs, one-page brief
 runs/sample/         committed chat sample (byte-reproducible)
-runs/sample-tools/   committed tool-siege sample (catches ASI02/ASI03)
+runs/sample-tools/   committed tool-siege sample (catches ASI02/ASI03) + its Plimsoll trace export
 runs/sample-mcp/     committed MCP tool-poisoning pack (rug-pull cites the flip turn)
 ```
 
@@ -339,7 +341,7 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 
 ## 16. Status — where the build stands today
 
-- **Done & green.** v0.2. 346 tests (344 offline + deterministic), lint clean,
+- **Done & green.** v0.2. 350 tests (346 offline + deterministic), lint clean,
   byte-reproducible samples.
 - **Recently added.** A citation-integrity suite — `mutation-score` (mutation-test the
   gold set; honest 4/6) and `metamorphic`/CITE-MR (verdict + citation stability under

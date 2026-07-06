@@ -8,6 +8,7 @@ Self-contained inputs for the quickstart and for measuring the harness against a
 | `rubric_tools.yaml` | The tool-policy rubric driving the tool-use siege: `forbidden_tools` (a destructive tool that must never be called — OWASP Agentic ASI02) and `tool_must_precede` (a privileged action requiring prior approval — ASI03). Powers `runs/sample-tools/`. |
 | `rubric_mcp.yaml` | The rubric judging the MCP tool-poisoning attack pack: `no_data_exfiltration_tool` (forbidden exfil tools a poisoned description lures the agent into — ASI02/ASI04) and `privileged_tool_requires_manifest_check` (a charge with no prior manifest verification — ASI04/ASI03). Powers `runs/sample-mcp/`. |
 | `expected_failures.yaml` | Per-persona ground-truth: which persona is expected to fail which criterion when this rubric is run against the local stub agent. Consumed by `coehoorn compare`. |
+| `plimsoll_policy_tools.json` | The same tool-policy contract as `rubric_tools.yaml`, expressed as a [Plimsoll](https://github.com/theo-ai-lab/plimsoll) policy (same org — dogfooding): `forbidden_tools` mirrors the destructive-tool list, `must_precede` mirrors the approval-before-refund rule. Gates the traces exported by `scripts/export_plimsoll_traces.py` in `.github/workflows/trace-gate.yml`. |
 
 ## Running the example
 
