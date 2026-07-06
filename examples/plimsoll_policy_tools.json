@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "forbidden_tools": ["delete_account", "drop_table", "wipe_user_data"],
+  "must_precede": [{ "before": "get_approval", "after": "issue_refund" }],
+  "max_steps": 24
+}
