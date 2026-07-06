@@ -20,6 +20,7 @@ from coehoorn.mcp_redteam import (
     mcp_tool_poisoning_rubric,
     run_scenario,
 )
+from coehoorn.report_html import render_report_html
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_DIR = REPO_ROOT / "runs" / "sample-mcp"
@@ -27,7 +28,7 @@ CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
 COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=timezone.utc)
 
 
-async def _report_json(index: int, key: str) -> str:
+async def _build_report(index: int, key: str):
     rubric, rules = mcp_tool_poisoning_rubric()
     transcript = await run_scenario(build_scenario(key))
     verdicts = judge_all([transcript], rubric, rules, mode="heuristic")
@@ -37,13 +38,16 @@ async def _report_json(index: int, key: str) -> str:
         verdicts=verdicts,
         agent_endpoint=f"loopback-mcp://{key}",
     )
-    report = pin_report_timestamps(
+    return pin_report_timestamps(
         report,
         created_at=CREATED,
         completed_at=COMPLETED,
         run_id=f"coehoorn-mcp-{index:04d}-0000-000000000000",
     )
-    return report.model_dump_json(indent=2)
+
+
+async def _report_json(index: int, key: str) -> str:
+    return (await _build_report(index, key)).model_dump_json(indent=2)
 
 
 @pytest.mark.asyncio
@@ -61,6 +65,16 @@ async def test_committed_sample_json_matches_a_fresh_build():
     for i, key in enumerate(SCENARIOS):
         committed = (SAMPLE_DIR / key / "report.json").read_text()
         assert await _report_json(i, key) == committed, key
+
+
+@pytest.mark.asyncio
+async def test_committed_sample_html_matches_a_fresh_render():
+    # The committed HTML survey is regenerated from the report too, so it must
+    # also match a fresh render byte-for-byte — otherwise the rendered artifact
+    # could drift from the report while the JSON gate stayed green.
+    for i, key in enumerate(SCENARIOS):
+        committed = (SAMPLE_DIR / key / "report.html").read_text()
+        assert render_report_html(await _build_report(i, key)) == committed, key
 
 
 def test_hero_is_first_and_the_committed_samples_exist():
