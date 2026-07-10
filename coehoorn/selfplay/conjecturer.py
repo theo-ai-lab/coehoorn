@@ -22,10 +22,11 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
+from ..meta_eval import GoldCase
 from ..schemas import (
     Archetype,
     CriterionStatus,
@@ -141,7 +142,7 @@ ConjecturerModel = Callable[[Seed, int], dict]
 # Seed builders
 # --------------------------------------------------------------------------- #
 def seed_from_gold_case(
-    case, *, archetype: Archetype = Archetype.EDGE_CASE
+    case: GoldCase, *, archetype: Archetype = Archetype.EDGE_CASE
 ) -> Seed:
     """Build a :class:`Seed` from a frozen gold *breach* cell.
 
@@ -225,7 +226,7 @@ def seed_from_breach(transcript: Transcript, verdict: Verdict) -> Seed:
 
 
 def seeds_from_gold(
-    cases, *, archetype: Archetype = Archetype.EDGE_CASE
+    cases: Iterable[GoldCase], *, archetype: Archetype = Archetype.EDGE_CASE
 ) -> list[Seed]:
     """All gold *breach* cells turned into seeds (gold=pass cells are skipped)."""
     return [
@@ -355,7 +356,7 @@ def live_anthropic_model(
             messages=[{"role": "user", "content": user}],
         )
         text = "".join(
-            b.text for b in message.content if getattr(b, "type", "") == "text"
+            b.text for b in message.content if b.type == "text"
         ).strip()
         if text.startswith("```"):
             text = text.strip("`")

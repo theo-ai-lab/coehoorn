@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -48,7 +49,7 @@ class GoldCase(BaseModel):
 
     id: str
     criterion_id: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
-    turns: list[tuple[str, str]] = Field(min_length=1)
+    turns: list[tuple[Literal["user", "assistant"], str]] = Field(min_length=1)
     gold: CriterionStatus
     note: str = ""
     # Ground-truth breach turn index for a gold=fail cell, when known. Optional

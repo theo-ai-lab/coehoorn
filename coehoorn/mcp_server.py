@@ -12,6 +12,8 @@ API key, no telemetry) and returns the breach report as structured data.
 """
 from __future__ import annotations
 
+from typing import Any
+
 import yaml
 
 from .aggregator import build_report
@@ -22,7 +24,7 @@ from .rubric_parser import parse_rubric_dict
 from .schemas import CriterionStatus, VerdictOutcome
 
 
-def build_server():
+def build_server() -> Any:
     """Construct the FastMCP server. Raises a clear error if the extra is absent."""
     try:
         from mcp.server.fastmcp import FastMCP

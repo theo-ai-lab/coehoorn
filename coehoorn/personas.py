@@ -215,7 +215,7 @@ def generate_personas_llm(
         messages=[{"role": "user", "content": user}],
     )
     text = "".join(
-        block.text for block in message.content if getattr(block, "type", "") == "text"
+        block.text for block in message.content if block.type == "text"
     ).strip()
     # Strip ```json fences if the model adds them despite being told not to.
     if text.startswith("```"):

@@ -30,6 +30,7 @@ from datetime import UTC, datetime
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from ..agent_adapter import AgentCall
+from ..meta_eval import GoldCase
 from ..metamorphic import (
     CiteMrReport,
     JudgeRunner,
@@ -130,7 +131,7 @@ def citation_invariant_holds(
 
 
 def judge_trust_gate(
-    cases,
+    cases: list[GoldCase],
     rubric: Rubric,
     rules: dict[str, HeuristicCriterionRule],
     *,

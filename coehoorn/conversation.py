@@ -13,9 +13,15 @@ import asyncio
 import os
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from .agent_adapter import AgentCall
 from .schemas import Archetype, ConversationTurn, Persona, Rubric, Transcript
+
+if TYPE_CHECKING:
+    # Typing-only: the runtime import stays lazy inside run_conversation_llm so
+    # the offline path never needs anthropic at import time.
+    from anthropic.types import MessageParam
 
 # Archetype-specific probe scripts. Each list is a sequence of user messages
 # (up to max_turns long). The probes are intentionally tuned to surface
@@ -165,7 +171,7 @@ async def run_conversation_llm(
     # persona_history strictly alternates user -> assistant starting with user;
     # length is 2*completed_turns + 1 mid-iteration (right before we append the
     # assistant reply) and 2*completed_turns at all stable points.
-    persona_history: list[dict] = []
+    persona_history: list[MessageParam] = []
     last_agent_reply: str | None = None
 
     for turn_n in range(max_turns):
@@ -185,7 +191,7 @@ async def run_conversation_llm(
             messages=persona_history,
         )
         persona_msg = "".join(
-            b.text for b in msg.content if getattr(b, "type", "") == "text"
+            b.text for b in msg.content if b.type == "text"
         ).strip()
         persona_history.append({"role": "assistant", "content": persona_msg})
 

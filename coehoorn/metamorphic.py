@@ -58,9 +58,10 @@ import math
 import os
 import re
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -73,6 +74,7 @@ from .schemas import (
     Persona,
     Report,
     Rubric,
+    ToolCall,
     Transcript,
     Verdict,
     VerdictOutcome,
@@ -157,7 +159,11 @@ def _sub_name(text: str, old: str, new: str) -> str:
     return re.sub(rf"\b{re.escape(old)}\b", new, text)
 
 
-def _rekeyed(turns: list[tuple[str, str, list]]) -> list[ConversationTurn]:
+#: (role, content, tool_calls) — the lossless tuple form the transforms edit.
+_TurnTuple = tuple[Literal["user", "assistant"], str, list[ToolCall]]
+
+
+def _rekeyed(turns: list[_TurnTuple]) -> list[ConversationTurn]:
     """Build ConversationTurns whose .index == list position (the invariant)."""
     return [
         ConversationTurn(index=i, role=role, content=content, tool_calls=tcs)
@@ -165,11 +171,11 @@ def _rekeyed(turns: list[tuple[str, str, list]]) -> list[ConversationTurn]:
     ]
 
 
-def _turn_tuples(transcript: Transcript) -> list[tuple[str, str, list]]:
+def _turn_tuples(transcript: Transcript) -> list[_TurnTuple]:
     return [(t.role, t.content, list(t.tool_calls)) for t in transcript.turns]
 
 
-def _rebuild(transcript: Transcript, turns: list[tuple[str, str, list]],
+def _rebuild(transcript: Transcript, turns: list[_TurnTuple],
              *, persona: Persona | None = None) -> Transcript:
     return Transcript(
         id=transcript.id,
@@ -273,7 +279,7 @@ def t_renumber(
     """
     if k < 1:
         raise ValueError(f"t_renumber requires k >= 1; got {k}")
-    filler: list[tuple[str, str, list]] = []
+    filler: list[_TurnTuple] = []
     for j in range(k):
         if j % 2 == 0:
             filler.append(("user", filler_user, []))
@@ -343,7 +349,7 @@ def t_insert(
             )
 
     gap_multiset = list(gap_list)
-    new_turns: list[tuple[str, str, list]] = []
+    new_turns: list[_TurnTuple] = []
     orig = _turn_tuples(transcript)
     for pos in range(n + 1):
         for _ in range(gap_multiset.count(pos)):
@@ -374,7 +380,7 @@ def t_paraphrase_noncited(
     check is exactly what catches it.
     """
     table = synonyms if synonyms is not None else DEFAULT_SYNONYMS
-    new_turns: list[tuple[str, str, list]] = []
+    new_turns: list[_TurnTuple] = []
     for t in transcript.turns:
         if t.index in protected_turns:
             new_turns.append((t.role, t.content, list(t.tool_calls)))
@@ -810,7 +816,10 @@ def run_cite_mr(
     # the p-values and re-decide is_unstable. Deterministic runs are exact
     # (certain), not a statistical test, so they keep their per-comparison certainty.
     if not deterministic and scores:
-        holm = _holm_significant([s.p_value for s in scores], alpha)
+        # Every score in this branch carries a float p_value — set
+        # unconditionally by _build_stability_score from fisher_exact_greater;
+        # the field's None default exists only for the model schema.
+        holm = _holm_significant(cast("list[float]", [s.p_value for s in scores]), alpha)
         scores = [
             s.model_copy(update={"is_unstable": ok}) for s, ok in zip(scores, holm, strict=True)
         ]
@@ -892,7 +901,7 @@ def _exit_code(report: CiteMrReport, fail_on_instability: bool) -> int:
 
 
 def _rubric_semantic_collisions(
-    rules: dict[str, object], *, persona_name: str = ""
+    rules: Mapping[str, object], *, persona_name: str = ""
 ) -> list[str]:
     """Tokens where a default transform could change the criterion under test.
 

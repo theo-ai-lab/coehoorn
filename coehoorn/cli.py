@@ -52,7 +52,7 @@ from .config import headers_from_env, resolve_endpoint
 from .conversation import run_conversations
 from .judge import judge_all
 from .meta_eval import evaluate_gold, load_gold_cases
-from .metrics import metrics_from_comparison
+from .metrics import ProportionEstimate, metrics_from_comparison
 from .personas import generate_personas_heuristic, generate_personas_llm
 from .report_html import write_report_html
 from .rubric_parser import parse_rubric_file
@@ -260,12 +260,12 @@ def _cmd_meta_eval(args: argparse.Namespace) -> int:
     if args.json:
         print(result.model_dump_json(indent=2))
     else:
-        def rate(est):
+        def rate(est: ProportionEstimate) -> str:
             if est.value is None:
                 return "n/a"
             return f"{est.value:.2f} (95% CI {est.lower:.2f}-{est.upper:.2f}, n={est.denominator})"
 
-        def num(x):
+        def num(x: float | None) -> str:
             # balanced accuracy / kappa are None when a class is absent
             # (single-class gold) — never crash the human path on it.
             return "n/a" if x is None else f"{x:.3f}"

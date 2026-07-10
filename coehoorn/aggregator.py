@@ -127,7 +127,11 @@ def compare_to_expected(
     for pid in sorted(all_personas):
         exp = set(expected.get(pid, []))
         statuses = status_by_persona.get(pid, {})
-        tp, fp, fn, tn, abstained = [], [], [], [], []
+        tp: list[str] = []
+        fp: list[str] = []
+        fn: list[str] = []
+        tn: list[str] = []
+        abstained: list[str] = []
         for cid in all_criteria:
             status = statuses.get(cid)
             expected_fail = cid in exp

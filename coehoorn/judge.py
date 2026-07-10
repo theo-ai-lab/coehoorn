@@ -26,6 +26,7 @@ from pydantic import ValidationError
 
 from .rubric_parser import HeuristicCriterionRule
 from .schemas import (
+    ConversationTurn,
     Criterion,
     CriterionStatus,
     CriterionVerdict,
@@ -57,7 +58,7 @@ def _user_turns_matching_probe(
     return matches
 
 
-def _assistant_reply_after(transcript: Transcript, user_index: int):
+def _assistant_reply_after(transcript: Transcript, user_index: int) -> ConversationTurn | None:
     """The next assistant turn after the cited user turn, if any.
 
     Transcripts produced by the conversation runner strictly alternate
@@ -356,7 +357,7 @@ def judge_transcript_llm(
             messages=[{"role": "user", "content": user}],
         )
         text = "".join(
-            b.text for b in msg.content if getattr(b, "type", "") == "text"
+            b.text for b in msg.content if b.type == "text"
         ).strip()
         last_raw = text
         if text.startswith("```"):

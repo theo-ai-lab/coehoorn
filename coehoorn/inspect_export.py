@@ -16,6 +16,7 @@ malformed log.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from .schemas import CriterionStatus, Report, VerdictOutcome
 
@@ -34,7 +35,7 @@ _VALUE_BY_OUTCOME = {
 }
 
 
-def _require_inspect():
+def _require_inspect() -> tuple[Any, ...]:
     try:
         from inspect_ai.log import (
             EvalConfig,
@@ -52,7 +53,7 @@ def _require_inspect():
     return EvalConfig, EvalDataset, EvalLog, EvalSample, EvalSpec, Score
 
 
-def report_to_eval_log(report: Report):
+def report_to_eval_log(report: Report) -> Any:
     """Build an ``inspect_ai.log.EvalLog`` from a Coehoorn Report."""
     EvalConfig, EvalDataset, EvalLog, EvalSample, EvalSpec, Score = _require_inspect()
     by_tid = {v.transcript_id: v for v in report.verdicts}

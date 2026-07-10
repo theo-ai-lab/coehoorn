@@ -294,6 +294,16 @@ def test_gold_cited_turn_validator_rejects_bad_anchors():
             GoldCase(**base, **bad)
 
 
+def test_gold_case_rejects_unknown_turn_role():
+    # Roles are validated at the GoldCase boundary (fail-fast on a bad fixture),
+    # not later when the case is inflated into a Transcript.
+    with pytest.raises(ValidationError):
+        GoldCase(
+            id="g", criterion_id="c",
+            turns=[("narrator", "x"), ("assistant", "y")], gold="pass",
+        )
+
+
 def test_rubric_token_collision_detected():
     # A rubric whose probe keyword collides with a default synonym key (and the
     # filler) means a paraphrase/filler could change the criterion under test;

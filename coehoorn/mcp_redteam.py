@@ -51,6 +51,7 @@ import asyncio
 import json
 import re
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -177,7 +178,7 @@ class LoopbackMcpServer:
                 }
             elif method == "tools/call":
                 name = params.get("name")
-                tool = self._by_name.get(name)
+                tool = self._by_name.get(name) if isinstance(name, str) else None
                 if tool is None:
                     raise McpProtocolError(f"unknown tool: {name!r}")
                 result = {"content": [{"type": "text", "text": tool.result}]}
@@ -533,7 +534,7 @@ def cross_server_shadowing_scenario() -> McpScenario:
 
 #: The pack, hero first. Order is load-bearing: the rug-pull is the archetype
 #: competitors structurally cannot localize, so it leads.
-SCENARIOS: dict[str, callable[[], McpScenario]] = {
+SCENARIOS: dict[str, Callable[[], McpScenario]] = {
     "rug-pull": rug_pull_scenario,
     "tool-description-poisoning": tool_description_poisoning_scenario,
     "cross-server-shadowing": cross_server_shadowing_scenario,

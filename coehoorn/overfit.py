@@ -69,7 +69,7 @@ from .meta_eval import (
     heuristic_predictor,
     load_gold_cases,
 )
-from .metrics import ProportionEstimate, wilson_lower_bound
+from .metrics import DetectionMetrics, ProportionEstimate, wilson_lower_bound
 from .rubric_parser import HeuristicCriterionRule, parse_rubric_file
 from .schemas import CriterionStatus, Rubric
 
@@ -281,7 +281,7 @@ def _score_config(
     cases: list[GoldCase],
     rubric: Rubric,
     rules: dict[str, HeuristicCriterionRule],
-) -> tuple[ConfigScore, object]:
+) -> tuple[ConfigScore, DetectionMetrics]:
     result = evaluate_gold(cases, rubric, rules, predictor=config.predictor)
     m = result.metrics
     return (
@@ -341,7 +341,7 @@ def select_config_and_correct(
     if not configs:
         raise ValueError("select_config_and_correct requires at least one config")
 
-    scored: list[tuple[ConfigScore, object]] = [
+    scored: list[tuple[ConfigScore, DetectionMetrics]] = [
         _score_config(c, cases, rubric, rules) for c in configs
     ]
     scores = [s for s, _ in scored]

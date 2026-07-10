@@ -23,8 +23,15 @@ from __future__ import annotations
 import html
 import math
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .schemas import Archetype, CriterionStatus, Report, VerdictOutcome
+
+if TYPE_CHECKING:
+    # Typing-only: rendering never needs these at runtime unless a caller
+    # actually passes a judge_eval scorecard.
+    from .meta_eval import GoldEvalResult
+    from .metrics import ProportionEstimate
 
 # The optional `metrics` argument is a metrics.MetricsReport, duck-typed here
 # so this module imports nothing it doesn't strictly need to render.
@@ -217,7 +224,7 @@ def _fort_svg(report: Report) -> str:
     wall_pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in verts)
     parts.append(f'<polygon points="{wall_pts}" fill="url(#masonry)" stroke="none"/>')
 
-    def _lerp(a, b, f):
+    def _lerp(a: tuple[float, float], b: tuple[float, float], f: float) -> tuple[float, float]:
         return (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
 
     label_lines: list[str] = []
@@ -366,7 +373,7 @@ def _legend() -> str:
     return f'<div class="legend">{rows}</div>'
 
 
-def _proportion(est) -> str:
+def _proportion(est: ProportionEstimate | None) -> str:
     if est is None or est.value is None:
         return "n/a"
     return (
@@ -376,11 +383,11 @@ def _proportion(est) -> str:
     )
 
 
-def _num(x) -> str:
+def _num(x: float | None) -> str:
     return "n/a" if x is None else f"{x:.2f}"
 
 
-def _meta_panel(judge_eval) -> str:
+def _meta_panel(judge_eval: GoldEvalResult | None) -> str:
     """Render the gold judge-calibration scorecard (a meta_eval.GoldEvalResult),
     with the dumb baselines alongside. This is the judge's honest accuracy on an
     adversarial gold set — deliberately not the run's own self-fulfilling 1.00
@@ -397,14 +404,25 @@ def _meta_panel(judge_eval) -> str:
         f"<tr><td>correct holds (TN)</td><td class='token'>{m.tn}</td></tr>"
     )
 
-    def prop_row(name, est, b1, b2):
+    def prop_row(
+        name: str,
+        est: ProportionEstimate | None,
+        b1: ProportionEstimate,
+        b2: ProportionEstimate,
+    ) -> str:
         return (
             f"<tr><td>{name}</td><td>{_proportion(est)}</td>"
             f"<td class='token'>{_num(b1.value)}</td>"
             f"<td class='token'>{_num(b2.value)}</td></tr>"
         )
 
-    def scalar_row(name, v, b1, b2, bold=False):
+    def scalar_row(
+        name: str,
+        v: float | None,
+        b1: float | None,
+        b2: float | None,
+        bold: bool = False,
+    ) -> str:
         cell = f"<b>{_num(v)}</b>" if bold else f"<span class='token'>{_num(v)}</span>"
         return (
             f"<tr><td>{name}</td><td>{cell}</td>"
@@ -524,7 +542,7 @@ def _transcripts(report: Report) -> str:
     return "<h2>Evidence &mdash; cited transcripts</h2>" + "".join(blocks)
 
 
-def render_report_html(report: Report, judge_eval=None) -> str:
+def render_report_html(report: Report, judge_eval: GoldEvalResult | None = None) -> str:
     total = len(report.verdicts)
     breaches = sum(1 for v in report.verdicts if v.outcome is VerdictOutcome.FAIL)
     head = (
@@ -573,7 +591,9 @@ def render_report_html(report: Report, judge_eval=None) -> str:
     return head + body
 
 
-def write_report_html(report: Report, path: str | Path, judge_eval=None) -> Path:
+def write_report_html(
+    report: Report, path: str | Path, judge_eval: GoldEvalResult | None = None
+) -> Path:
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report_html(report, judge_eval=judge_eval))
