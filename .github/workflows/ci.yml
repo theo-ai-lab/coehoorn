@@ -1,5 +1,15 @@
 # Offline CI for Coehoorn. Every gate here runs without a network or an API key,
 # which is the point: the harness's own determinism thesis is enforced in CI.
+#
+# Gate inventory (each measured before it was pinned, none aspirational):
+#   ruff      — explicit ruleset in pyproject; repo is violation-free at that set
+#   mypy      — whole package, disallow-untyped/incomplete-defs; zero ignores
+#   pytest    — full offline suite with the coverage floor from pyproject
+#               (fail_under = 90, the measured core-only number)
+#   meta-eval — Wilson lower-bound recall floor on the frozen judge gold set
+#   byte-repro— ALL THREE committed artifact sets (runs/sample, runs/sample-tools,
+#               runs/sample-mcp) regenerate byte-identically on every matrix leg;
+#               any drift fails `git diff --exit-code runs/`
 name: ci
 
 on:
@@ -8,7 +18,48 @@ on:
 
 jobs:
   offline:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Sync (core only — no extras)
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy
+
+      - name: Test (full offline suite + measured coverage floor)
+        run: uv run pytest -q --cov=coehoorn
+
+      - name: Judge meta-eval gate (Wilson interval floor)
+        run: |
+          uv run coehoorn meta-eval \
+            --gold tests/gold/judge_gold.jsonl \
+            --rubric examples/rubric_coach.yaml \
+            --min-recall-lower 0.20
+
+      - name: Committed siege artifacts are byte-reproducible
+        run: |
+          uv run python scripts/build_sample_report.py
+          uv run python scripts/build_tool_sample.py
+          uv run python scripts/build_mcp_sample.py
+          git diff --exit-code runs/
+
+  # One macOS leg proves the suite and the byte-repro thesis aren't
+  # linux-only; a full OS x version cross-product would burn CI minutes
+  # without adding information (the interpreter matrix already ran above).
+  macos-smoke:
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
       - uses: astral-sh/setup-uv@v5
@@ -18,23 +69,15 @@ jobs:
       - name: Sync (core only — no extras)
         run: uv sync
 
-      - name: Lint
-        run: uv run ruff check .
-
       - name: Test (full offline suite)
         run: uv run pytest -q
 
-      - name: Judge meta-eval gate (Wilson interval floor)
-        run: |
-          uv run coehoorn meta-eval \
-            --gold tests/gold/judge_gold.jsonl \
-            --rubric examples/rubric_coach.yaml \
-            --min-recall-lower 0.20
-
-      - name: Sample report is byte-reproducible
+      - name: Committed siege artifacts are byte-reproducible
         run: |
           uv run python scripts/build_sample_report.py
-          git diff --exit-code runs/sample/
+          uv run python scripts/build_tool_sample.py
+          uv run python scripts/build_mcp_sample.py
+          git diff --exit-code runs/
 
   extras:
     runs-on: ubuntu-latest
