@@ -6,7 +6,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Runtime deps: 5](https://img.shields.io/badge/runtime%20deps-5-informational)
 ![Offline · no telemetry](https://img.shields.io/badge/offline-no%20telemetry-success)
-![Tests: 346 offline](https://img.shields.io/badge/tests-346%20offline-success)
+![Tests: 357 offline](https://img.shields.io/badge/tests-357%20offline-success)
 
 **The problem.** You're shipping a chat or tool-using agent. It passes unit tests —
 then in a real multi-turn conversation it caves under pressure, fabricates a
@@ -129,9 +129,13 @@ regression gate would replay.
 
 ## Quickstart
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Install from
+source — the working path today (no `coehoorn` package is on PyPI yet; the
+first publish is pending):
 
 ```bash
+git clone https://github.com/theo-ai-lab/coehoorn
+cd coehoorn
 uv sync                                   # core only: five runtime deps, no extras
 uv run pytest -q                          # the full offline suite (no network, no key)
 
@@ -527,8 +531,13 @@ Both are lazy — neither is imported on the core path; `import coehoorn` and th
 work with no extras installed.
 
 ```bash
-pip install 'coehoorn[mcp]'      # coehoorn-mcp: lay a siege from any MCP-speaking agent
-pip install 'coehoorn[inspect]'  # export a Report to an Inspect AI EvalLog
+# from a checkout — the working path today
+uv sync --extra mcp              # coehoorn-mcp: lay a siege from any MCP-speaking agent
+uv sync --extra inspect          # export a Report to an Inspect AI EvalLog
+
+# from PyPI (PyPI publish pending — these commands work once v0.2.0 ships)
+pip install 'coehoorn[mcp]'
+pip install 'coehoorn[inspect]'
 ```
 
 ## Repository layout
