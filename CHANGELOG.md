@@ -3,7 +3,12 @@
 All notable changes to Coehoorn are recorded here. Versions follow
 [semantic versioning](https://semver.org/).
 
-## [0.2.0] — 2026-07-04
+## [0.2.0] — unreleased
+
+> Version-bumped in `pyproject.toml` on 2026-07-04; the `v0.2.0` tag and the
+> first PyPI publish are **pending**. Pushing the tag runs
+> `.github/workflows/release.yml` (OIDC trusted publishing + a clean-env
+> install smoke of the published wheel).
 
 ### Added
 - **MCP tool-poisoning attack pack (`coehoorn mcp-siege`).** A runnable,
@@ -136,15 +141,40 @@ All notable changes to Coehoorn are recorded here. Versions follow
 - **Optional extras (lazy):** `coehoorn[mcp]` exposes a siege as an MCP tool;
   `coehoorn[inspect]` exports a run to an Inspect AI `EvalLog`. Neither is
   imported on the core path.
+- **Release workflow (`.github/workflows/release.yml`).** Fires on `v*.*.*`
+  tag pushes ONLY, refuses a tag that disagrees with `pyproject.toml`'s
+  version, smokes the built wheel in a fresh venv before the unrecoverable
+  upload, publishes via PyPI OIDC trusted publishing (no stored token
+  anywhere), then a checkout-free job installs `coehoorn[mcp]` from the
+  PUBLISHED wheel and runs the keyless MCP siege. The trigger and
+  publish-safety contract are pinned by `tests/test_release_workflow.py`, so
+  a later edit that widens the trigger or pastes a token fails the suite.
+- **GitHub Pages deploy (`.github/workflows/pages.yml`).** Publishes the
+  committed byte-reproducible Siege Surveys: the site root serves the MCP
+  rug-pull report directly and the full `runs/` tree keeps stable URLs that
+  map 1:1 to repo paths. Nothing is generated at deploy time.
 
 ### Changed
 - **Discovery semantics:** any criterion breach now fails the transcript;
   tolerance/threshold policy belongs to a downstream gate, not to Coehoorn. The
   rubric's `weight` and `failure_is_critical` now rank worst-moment severity.
 - The committed sample report is byte-reproducible by construction.
+- **CI hardened from a single leg to a gate battery:** a Python 3.11–3.13
+  matrix plus one macOS smoke leg; an explicit ruff ruleset
+  (`E, W, F, I, B, UP, C4, SIM, RUF` — the repo is violation-free at that
+  set, nothing grandfathered); a mypy gate over the whole package
+  (`disallow_untyped_defs` / `disallow_incomplete_defs`, zero ignore
+  pragmas); a measured 90% coverage floor; and the byte-reproducibility gate
+  extended from `runs/sample/` alone to all three committed artifact sets
+  (`runs/sample/`, `runs/sample-tools/`, `runs/sample-mcp/`).
 - **Removed the Jinja2 dependency** — the report renders in pure Python.
 
 ### Fixed
+- The MCP rubric ships inside the package (`coehoorn/data/rubric_mcp.yaml`),
+  so an installed `coehoorn mcp-siege` works with no repository checkout —
+  it previously loaded from the repo's `examples/` tree, which a wheel
+  install does not have. `examples/rubric_mcp.yaml` remains the documented
+  user-facing copy, pinned byte-identical by the suite.
 - The sample-report builder no longer mutates the committed sample on every run
   (pinned run id + timestamps).
 - Removed a dead `overall_pass = True` coercion in the heuristic judge that
