@@ -1,0 +1,55 @@
+# Publish the committed sample Siege Surveys to GitHub Pages, so the report —
+# the artifact the whole harness exists to produce — renders in a browser
+# without a clone.
+#
+# Nothing is generated here: the deployed pages are the byte-reproducible
+# reports already committed under runs/, produced offline against the bundled
+# stub agent. The site root serves the MCP rug-pull Siege Survey directly;
+# the full runs/ tree is mirrored beneath /runs/ so every committed report
+# and its JSON evidence keep stable URLs that map 1:1 to repo paths.
+name: pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "runs/**"
+      - ".github/workflows/pages.yml"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; let an in-flight deploy finish so production is never
+# left mid-swap.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Assemble the site from the committed reports
+        run: |
+          mkdir -p _site/runs
+          cp -R runs/. _site/runs/
+          # The reports are self-contained single-file HTML (inline CSS + SVG,
+          # no scripts), so the rug-pull survey can be the root page verbatim.
+          cp runs/sample-mcp/rug-pull/report.html _site/index.html
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v5
