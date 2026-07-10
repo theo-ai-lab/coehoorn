@@ -1,0 +1,120 @@
+# Publish a tagged version to PyPI — the one workflow whose misfire is
+# unrecoverable: PyPI never accepts the same version twice, so a bad upload
+# cannot be replaced. Its safety contract is pinned by
+# tests/test_release_workflow.py; a later edit that widens the trigger,
+# pastes a token, or drops the clean-env property fails the suite loudly.
+#
+#   trigger   — version tags (v*.*.*) ONLY. No branch push, no dispatch, no
+#               schedule: nothing publishes from unreviewed state.
+#   build     — refuses to build unless the pushed tag matches pyproject's
+#               version, then smokes the freshly built wheel in a throwaway
+#               venv BEFORE anything uploads.
+#   publish   — OIDC trusted publishing (pypa/gh-action-pypi-publish, no
+#               stored token anywhere), gated behind the `pypi` environment.
+#   install-smoke — a job with NO checkout installs coehoorn[mcp] from the
+#               PUBLISHED wheel and runs the keyless MCP siege, proving the
+#               README's own install commands work for a stranger with no
+#               repository tree.
+#
+# Tag names are never interpolated into run scripts via ${{ }} — the
+# default-env $GITHUB_REF_NAME expands as data, not code.
+name: release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Tag must match the packaged version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          pyproject_version="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          if [ "$tag_version" != "$pyproject_version" ]; then
+            echo "error: tag $GITHUB_REF_NAME does not match pyproject.toml version $pyproject_version" >&2
+            exit 1
+          fi
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Smoke the built wheel in a fresh venv (before the unrecoverable upload)
+        run: |
+          uv venv "$RUNNER_TEMP/wheel-smoke"
+          VIRTUAL_ENV="$RUNNER_TEMP/wheel-smoke" uv pip install dist/*.whl
+          "$RUNNER_TEMP/wheel-smoke/bin/coehoorn" --version
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/coehoorn/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      # OIDC trusted publishing: the action exchanges this workflow's identity
+      # for a short-lived PyPI token. No secret exists to rotate or leak.
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  # Proves the PUBLISHED artifact alone delivers the README's install
+  # commands: no checkout, no uv, no repo tree — plain pip against the index,
+  # then the keyless MCP siege end to end.
+  install-smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install coehoorn[mcp] from PyPI (retry while the index propagates)
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ok=""
+          for attempt in $(seq 1 15); do
+            if pip install --no-cache-dir --only-binary coehoorn "coehoorn[mcp]==$version"; then
+              ok=1
+              break
+            fi
+            echo "index not serving coehoorn==$version yet (attempt $attempt); retrying in 20s" >&2
+            sleep 20
+          done
+          [ -n "$ok" ]
+
+      - name: The installed CLI works with no repository tree
+        working-directory: ${{ runner.temp }}
+        run: |
+          coehoorn --version
+          coehoorn mcp-siege --json --out mcp-smoke > summary.json
+          python3 - <<'PY'
+          import json
+
+          with open("summary.json", encoding="utf-8") as fh:
+              archetypes = {a["archetype"]: a for a in json.load(fh)["archetypes"]}
+          rug = archetypes["rug-pull"]
+          # The pack drives a deliberately-vulnerable fixture: the rug-pull
+          # MUST breach, cited to the turn the tool description flipped.
+          assert rug["outcome"] == "fail" and rug["cited"], rug
+          print("install-smoke ok:", {k: v["outcome"] for k, v in archetypes.items()})
+          PY
