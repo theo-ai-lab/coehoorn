@@ -51,9 +51,17 @@ dev = [
     "mypy>=2.2",
     "pytest>=9.0.3",
     "pytest-asyncio>=0.25.0",
+    "pytest-cov>=7.1",
     "ruff>=0.15.12",
     "types-pyyaml>=6.0.2",
 ]
+
+[tool.coverage.report]
+# Floor = the measured number, not an aspiration: the core-only suite (the
+# environment CI's offline job actually runs — extras skipped) measured 90.23%
+# line coverage on 2026-07-10 (3,623 statements, 354 missed). Raise the floor
+# when real coverage rises; never lower it to make a change fit.
+fail_under = 90
 
 [tool.mypy]
 # Gate scope: the whole shipped package — all 30 modules, no per-module
