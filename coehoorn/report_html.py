@@ -57,6 +57,14 @@ def _esc(value: object) -> str:
     return html.escape(str(value), quote=True)
 
 
+def _humanize_id(identifier: str) -> str:
+    """A plain-English gloss of a snake_case criterion id, shown beside the
+    technical id so a reader who does not know the rubric can still read a
+    breach. Pure formatting: it never invents meaning the id does not carry."""
+    words = identifier.replace("_", " ").strip()
+    return words[:1].upper() + words[1:] if words else identifier
+
+
 def _css() -> str:
     return f"""
   :root {{ {_PALETTE} }}
@@ -77,6 +85,14 @@ def _css() -> str:
   }}
   .token {{ font-family: {_MONO}; font-size: 0.82em; color: var(--sepia); }}
   h1, h2, h3 {{ font-weight: 600; margin: 0; }}
+  h2[id] {{ scroll-margin-top: 0.8rem; }}
+  .contents {{
+    font-size: 0.82rem; margin: 0 0 1.4rem; padding: 0.55rem 0.95rem;
+    background: var(--paper-inset); border: 1px solid var(--rule-faint);
+  }}
+  .contents b {{ font-variant: small-caps; letter-spacing: 0.08em; color: var(--sepia); }}
+  .contents a {{ color: var(--ditch); text-decoration: none; }}
+  .contents a:hover {{ text-decoration: underline; }}
   .cartouche {{
     background: var(--paper-inset); border: 1.2px solid var(--ink);
     box-shadow: inset 0 0 0 2.4px var(--paper-inset), inset 0 0 0 3.4px var(--rule-faint);
@@ -110,7 +126,7 @@ def _css() -> str:
   figure figcaption {{
     font-style: italic; color: var(--sepia); font-size: 0.85rem; margin-top: 0.3rem;
   }}
-  svg {{ width: 100%; max-width: 660px; height: auto; }}
+  svg {{ width: 100%; max-width: 780px; height: auto; display: block; margin: 0 auto; }}
   .legend {{
     background: var(--paper-inset); border: 1px solid var(--rule-faint);
     padding: 0.75rem 1rem; font-size: 0.84rem; columns: 2; column-gap: 1.6rem;
@@ -164,6 +180,8 @@ def _css() -> str:
   @media print {{
     html, body {{ background: var(--paper); }}
     .frame {{ box-shadow: none; }}
+    /* The in-page index is dead weight on paper — the whole record prints. */
+    .contents {{ display: none; }}
     details {{ break-inside: avoid; }}
     /* Force every approach open so the archival record is complete on paper,
        even the held ones that render collapsed on screen. */
@@ -446,7 +464,7 @@ def _meta_panel(judge_eval: GoldEvalResult | None) -> str:
     )
     return f"""
     <hr class="rule"/>
-    <h2>Judge calibration &mdash; the auditor, audited</h2>
+    <h2 id="calibration">Judge calibration &mdash; the auditor, audited</h2>
     <p>How this report's judge scored against a frozen, adversarial gold set &mdash;
     the honest measure of how far to trust its verdicts (not the run's own
     self-fulfilling score against its expected-failures fixture). Rates carry a
@@ -459,18 +477,41 @@ def _meta_panel(judge_eval: GoldEvalResult | None) -> str:
     """
 
 
+def _contents(report: Report, judge_eval: GoldEvalResult | None) -> str:
+    """A light in-page index so a long survey stays navigable — jump to the
+    evidence without scrolling past the calibration table. Plain anchors, no
+    script; hidden in print, where the whole record lays out in order."""
+    items = [("#breaches", "Breaches by criterion")]
+    if judge_eval is not None:
+        items.append(("#calibration", "Judge calibration"))
+    items.append(("#evidence", "Evidence"))
+    links = " &middot; ".join(
+        f'<a href="{href}">{_esc(label)}</a>' for href, label in items
+    )
+    return (
+        '<nav class="contents" aria-label="Survey contents">'
+        f"<b>In this survey</b> {links}</nav>"
+    )
+
+
 def _breach_table(report: Report) -> str:
     # By criterion only: the fort diagram already shows which archetype/approach
     # breached, so a second "by approach" table just restates the picture.
     fbc = report.failures_by_criterion
     if not fbc:
-        return "<p><em>No breaches: every approach was turned away at the wall.</em></p>"
+        return (
+            '<p id="breaches"><em>No breaches: every approach was turned away '
+            "at the wall.</em></p>"
+        )
+    # Each row leads with a plain-English gloss so a reader who has never seen
+    # the rubric can read the breach; the technical id stays alongside it.
     crit_rows = "".join(
-        f'<tr><td class="token">{_esc(cid)}</td><td>{n}</td></tr>'
+        f"<tr><td>{_esc(_humanize_id(cid))} "
+        f'<span class="token">{_esc(cid)}</span></td><td>{n}</td></tr>'
         for cid, n in sorted(fbc.items(), key=lambda kv: (-kv[1], kv[0]))
     )
     return f"""
-    <h2>Breaches by criterion</h2>
+    <h2 id="breaches">Breaches by criterion</h2>
     <table><tr><th scope="col">criterion</th><th scope="col">breaches</th></tr>{crit_rows}</table>
     """
 
@@ -499,7 +540,8 @@ def _transcripts(report: Report) -> str:
             else:
                 tag = '<span class="stamp abstain">abstained</span>'
             crit_items.append(
-                f'<div class="crit"><span class="token">{_esc(cv.criterion_id)}</span> '
+                f'<div class="crit">{_esc(_humanize_id(cv.criterion_id))} '
+                f'<span class="token">{_esc(cv.criterion_id)}</span> '
                 f"{tag} &mdash; {_esc(cv.rationale)}</div>"
             )
         cited = {
@@ -539,7 +581,7 @@ def _transcripts(report: Report) -> str:
             f"<div style='margin-top:0.5rem'>{''.join(turn_blocks)}</div>"
             "</details>"
         )
-    return "<h2>Evidence &mdash; cited transcripts</h2>" + "".join(blocks)
+    return '<h2 id="evidence">Evidence &mdash; cited transcripts</h2>' + "".join(blocks)
 
 
 def render_report_html(report: Report, judge_eval: GoldEvalResult | None = None) -> str:
@@ -580,6 +622,7 @@ def render_report_html(report: Report, judge_eval: GoldEvalResult | None = None)
     )
     body = (
         cartouche + figure + _legend() + summary_line
+        + _contents(report, judge_eval)
         + _breach_table(report)
         + _meta_panel(judge_eval)
         + '<hr class="rule"/>'
