@@ -12,6 +12,7 @@ localization a status-only verdict structurally cannot make.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -257,3 +258,37 @@ def test_cli_mcp_siege_fail_on_breach_gate(tmp_path):
         "--json", "--fail-on-breach",
     ])
     assert rc == 1
+
+
+# --------------------------------------------------------------------------- #
+# Packaging — the pack must work from an installed wheel, not just a checkout
+# --------------------------------------------------------------------------- #
+def test_mcp_rubric_ships_inside_the_package():
+    """`pip install coehoorn && coehoorn mcp-siege` must work with no repo tree.
+
+    The rubric the pack judges against therefore has to live INSIDE the
+    ``coehoorn`` package directory (shipped in the wheel), not in the
+    repository's ``examples/`` tree, which an installed distribution does not
+    have. A regression that points the loader back at the repo tree breaks the
+    published CLI while every checkout-based test stays green — this pin is
+    what fails instead.
+    """
+    import coehoorn.mcp_redteam as m
+
+    pkg_dir = Path(m.__file__).resolve().parent
+    rubric_path = Path(m._MCP_RUBRIC)
+    assert rubric_path.is_relative_to(pkg_dir), (
+        f"rubric resolves outside the package: {rubric_path}"
+    )
+    assert rubric_path.is_file()
+
+
+def test_examples_copy_pins_the_packaged_rubric():
+    """`examples/rubric_mcp.yaml` (the documented, user-facing copy) must stay
+    byte-identical to the packaged rubric the CLI actually loads, so the docs
+    never describe a different rubric than the one that runs."""
+    import coehoorn.mcp_redteam as m
+
+    repo_root = Path(__file__).resolve().parent.parent
+    examples_copy = repo_root / "examples" / "rubric_mcp.yaml"
+    assert examples_copy.read_bytes() == Path(m._MCP_RUBRIC).read_bytes()

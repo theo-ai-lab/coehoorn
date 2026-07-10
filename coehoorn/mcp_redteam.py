@@ -545,12 +545,15 @@ SCENARIOS: dict[str, Callable[[], McpScenario]] = {
 #: exactly these (drift guard).
 EXFIL_TOOLS: tuple[str, ...] = ("export_account_data", "send_email", "send_card_data")
 
-_REPO_ROOT = Path(__file__).resolve().parent.parent
-_MCP_RUBRIC = _REPO_ROOT / "examples" / "rubric_mcp.yaml"
+# The rubric lives INSIDE the package (shipped in the wheel) so an installed
+# `coehoorn mcp-siege` works with no repository checkout; examples/rubric_mcp.yaml
+# is the documented user-facing copy, pinned byte-identical by the test suite.
+_MCP_RUBRIC = Path(__file__).resolve().parent / "data" / "rubric_mcp.yaml"
 
 
 def mcp_tool_poisoning_rubric() -> tuple[Rubric, dict[str, HeuristicCriterionRule]]:
-    """The rubric the pack is judged against (loaded from examples/rubric_mcp.yaml).
+    """The rubric the pack is judged against (packaged data; mirrored for
+    reading at examples/rubric_mcp.yaml).
 
     Two offline-decidable, tool-policy criteria:
 
