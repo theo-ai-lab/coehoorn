@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from coehoorn.aggregator import (
@@ -30,7 +30,7 @@ def _rubric():
 
 
 def _t(persona_id="p00", arch=Archetype.EMOTIONAL):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Transcript(
         id=f"t-{persona_id}",
         persona=Persona(id=persona_id, archetype=arch, name="n", description="d"),

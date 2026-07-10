@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import random
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -29,8 +29,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 STUB_DIR = REPO_ROOT / "apps" / "stub-agent"
 SEED = 20260517
 FIXED_RUN_ID = "coehoorn-sample-0000-0000-000000000000"
-FIXED_CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
-FIXED_COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=timezone.utc)
+FIXED_CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
+FIXED_COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=UTC)
 
 
 def _stub_adapter():

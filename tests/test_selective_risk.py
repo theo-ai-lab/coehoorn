@@ -8,6 +8,7 @@ only its honest key-gating is asserted.
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import math
 from pathlib import Path
@@ -125,7 +126,7 @@ def test_certificate_convergence_curve_demonstrates_one_over_sqrt_n():
     assert 8 in pts and 512 in pts
     # Widths strictly shrink with N and quarter-N halves the width.
     ns = sorted(pts)
-    assert all(pts[a] > pts[b] for a, b in zip(ns, ns[1:]))
+    assert all(pts[a] > pts[b] for a, b in itertools.pairwise(ns))
     assert pts[64] / pts[256] == pytest.approx(2.0, abs=1e-9)
 
 
@@ -216,11 +217,11 @@ def test_cli_selective_risk_upper_bound_gate(capsys):
     p = _parser()
     base = ["selective-risk", "--gold", str(GOLD), "--rubric", str(RUBRIC)]
     # The Hoeffding upper bound is ~0.41; a ceiling below it must fail the gate.
-    low = p.parse_args(base + ["--max-risk-upper", "0.2"])
+    low = p.parse_args([*base, "--max-risk-upper", "0.2"])
     assert low._func(low) == 1
     assert "GATE FAILED" in capsys.readouterr().err
     # A ceiling above it passes (gating on the upper bound, not the point estimate).
-    high = p.parse_args(base + ["--max-risk-upper", "0.6"])
+    high = p.parse_args([*base, "--max-risk-upper", "0.6"])
     assert high._func(high) == 0
 
 

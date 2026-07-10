@@ -58,9 +58,9 @@ import math
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -83,7 +83,7 @@ from .schemas import (
 # serialized artifacts stay byte-reproducible (mirrors meta_eval._FIXED_TS).
 # No datetime.now / time.time / RNG anywhere on this path.
 # ---------------------------------------------------------------------------
-_FIXED_TS = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
+_FIXED_TS = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
 
 # CLI guard: an LLM run issues 1 + (1 + #transforms) * k real API calls and each
 # Fisher tail computes math.comb(2k, k), so an accidental huge --k is a paid-call /
@@ -292,10 +292,7 @@ def _borders_protected(gap: int, protected_turns: frozenset[int]) -> bool:
     point is the gap ``pu + 1``. (For strictly-alternating transcripts this is
     always odd and already rejected, but the guard is explicit.)
     """
-    for pu in protected_turns:
-        if (pu + 1) in protected_turns and gap == pu + 1:
-            return True
-    return False
+    return any((pu + 1) in protected_turns and gap == pu + 1 for pu in protected_turns)
 
 
 def _auto_gap(n: int, protected_turns: frozenset[int]) -> int:
@@ -804,7 +801,7 @@ def run_cite_mr(
     if stochastic_verdict_tests:
         keep = _holm_significant([p for _, p in stochastic_verdict_tests], alpha)
         verdict_violations.extend(
-            name for (name, _), ok in zip(stochastic_verdict_tests, keep) if ok
+            name for (name, _), ok in zip(stochastic_verdict_tests, keep, strict=True) if ok
         )
 
     # Multiplicity correction across the stochastic CITATION panel: the
@@ -815,7 +812,7 @@ def run_cite_mr(
     if not deterministic and scores:
         holm = _holm_significant([s.p_value for s in scores], alpha)
         scores = [
-            s.model_copy(update={"is_unstable": ok}) for s, ok in zip(scores, holm)
+            s.model_copy(update={"is_unstable": ok}) for s, ok in zip(scores, holm, strict=True)
         ]
     # Reconcile each per-score verdict_invariant with the FINAL (gated) violation
     # set so the per-score JSON flag never contradicts verdict_invariance_violations.
@@ -895,7 +892,7 @@ def _exit_code(report: CiteMrReport, fail_on_instability: bool) -> int:
 
 
 def _rubric_semantic_collisions(
-    rules: dict[str, "object"], *, persona_name: str = ""
+    rules: dict[str, object], *, persona_name: str = ""
 ) -> list[str]:
     """Tokens where a default transform could change the criterion under test.
 

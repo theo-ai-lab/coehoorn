@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import random
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -32,8 +32,8 @@ from coehoorn.aggregator import (  # noqa: E402
 )
 from coehoorn.conversation import run_conversations  # noqa: E402
 from coehoorn.judge import judge_all  # noqa: E402
-from coehoorn.metrics import metrics_from_comparison  # noqa: E402
 from coehoorn.meta_eval import evaluate_gold, load_gold_cases  # noqa: E402
+from coehoorn.metrics import metrics_from_comparison  # noqa: E402
 from coehoorn.personas import generate_personas_heuristic  # noqa: E402
 from coehoorn.report_html import write_report_html  # noqa: E402
 from coehoorn.rubric_parser import parse_rubric_file  # noqa: E402
@@ -43,13 +43,13 @@ SEED = 20260517
 # Pinned provenance so the committed sample is byte-reproducible: the README
 # quickstart command must regenerate it without dirtying `git diff`.
 SAMPLE_RUN_ID = "coehoorn-sample-0000-0000-000000000000"
-SAMPLE_CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
-SAMPLE_COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=timezone.utc)
+SAMPLE_CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
+SAMPLE_COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=UTC)
 
 
 def _stub_adapter():
     random.seed(SEED)
-    from app import app  # noqa: E402
+    from app import app
 
     client = app.test_client()
 

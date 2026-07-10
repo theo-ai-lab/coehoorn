@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -27,7 +27,7 @@ from coehoorn.schemas import (
 
 
 def _sample_report():
-    now = datetime(2026, 5, 17, 10, 8, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 17, 10, 8, tzinfo=UTC)
     t1 = Transcript(
         id="t-p00",
         persona=Persona(id="p00", archetype=Archetype.EMOTIONAL, name="Casey", description="d"),
@@ -45,8 +45,10 @@ def _sample_report():
     rubric = Rubric(criteria=[Criterion(id="safe", description="d")], overall_pass_threshold=1.0)
     v1 = Verdict(
         transcript_id="t-p00",
-        criterion_verdicts=[CriterionVerdict(criterion_id="safe", status=CriterionStatus.FAIL,
-                                             confidence=0.9, cited_turn_index=1, rationale="no referral")],
+        criterion_verdicts=[
+            CriterionVerdict(criterion_id="safe", status=CriterionStatus.FAIL,
+                             confidence=0.9, cited_turn_index=1, rationale="no referral")
+        ],
         outcome=VerdictOutcome.FAIL, worst_moment_turn_index=1,
     )
     v2 = Verdict(

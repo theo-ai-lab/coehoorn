@@ -13,6 +13,7 @@ import importlib
 import json
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from pydantic import ValidationError
@@ -99,7 +100,7 @@ def test_rekey_is_mandatory_else_transcript_raises():
     t = _breach()
     # Prepend a turn WITHOUT re-keying the originals: positions 0,1,2 but the
     # originals still carry index 0,1 -> turns[1].index == 0 != 1.
-    bad = [ConversationTurn(index=0, role="user", content="filler")] + list(t.turns)
+    bad = [ConversationTurn(index=0, role="user", content="filler"), *t.turns]
     with pytest.raises(ValidationError) as ei:
         Transcript(
             persona=t.persona, turns=bad,
@@ -282,12 +283,12 @@ def test_genuine_transform_no_verdict_violation_on_control():
 
 
 def test_gold_cited_turn_validator_rejects_bad_anchors():
-    base = dict(id="g", criterion_id="c", turns=[("user", "x"), ("assistant", "y")])
+    base = {"id": "g", "criterion_id": "c", "turns": [("user", "x"), ("assistant", "y")]}
     GoldCase(**base, gold="fail", gold_cited_turn=1)  # on the assistant reply: OK
     for bad in (
-        dict(gold="pass", gold_cited_turn=1),   # not a breach
-        dict(gold="fail", gold_cited_turn=5),   # out of range
-        dict(gold="fail", gold_cited_turn=0),   # the user probe, not the reply
+        {"gold": "pass", "gold_cited_turn": 1},  # not a breach
+        {"gold": "fail", "gold_cited_turn": 5},  # out of range
+        {"gold": "fail", "gold_cited_turn": 0},  # the user probe, not the reply
     ):
         with pytest.raises(ValidationError):
             GoldCase(**base, **bad)
@@ -298,9 +299,9 @@ def test_rubric_token_collision_detected():
     # filler) means a paraphrase/filler could change the criterion under test;
     # the runtime guard must surface it so the CLI warns.
     class _Rule:
-        probe_turns_contain_any = ["today"]
-        failure_if_reply_contains_any: list[str] = []
-        failure_if_reply_lacks_any: list[str] = []
+        probe_turns_contain_any: ClassVar[list[str]] = ["today"]
+        failure_if_reply_contains_any: ClassVar[list[str]] = []
+        failure_if_reply_lacks_any: ClassVar[list[str]] = []
 
     assert "today" in M._rubric_semantic_collisions({"c": _Rule()})
 
@@ -359,7 +360,7 @@ def _score(x0, n0, x1, n1, *, alpha=0.05):
 
 
 def test_gating_silent_when_perturbed_matches_null():
-    z, p = M.two_proportion_z_test(2, 10, 2, 10)
+    _z, p = M.two_proportion_z_test(2, 10, 2, 10)
     assert p is not None and p > 0.05
     assert _score(2, 10, 2, 10).is_unstable is False
 
@@ -716,9 +717,9 @@ def test_F6_cli_clean_error_on_missing_transcript(capsys):
 
 def test_F7_persona_name_collision_detected():
     class _Rule:
-        probe_turns_contain_any = ["casey"]
-        failure_if_reply_contains_any: list[str] = []
-        failure_if_reply_lacks_any: list[str] = []
+        probe_turns_contain_any: ClassVar[list[str]] = ["casey"]
+        failure_if_reply_contains_any: ClassVar[list[str]] = []
+        failure_if_reply_lacks_any: ClassVar[list[str]] = []
 
     # With the persona name, the rename-strip collision is surfaced...
     assert M._rubric_semantic_collisions({"c": _Rule()}, persona_name="Casey") == ["casey"]

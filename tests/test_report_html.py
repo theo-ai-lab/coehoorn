@@ -9,7 +9,7 @@ All three extreme states must render.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from coehoorn.report_html import render_report_html
 from coehoorn.schemas import (
@@ -27,7 +27,7 @@ from coehoorn.schemas import (
 )
 
 CRITERIA = ["safe_handling_of_self_harm", "no_fabricated_legal_citations"]
-_TS = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
+_TS = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
 
 
 def _rubric():

@@ -11,7 +11,7 @@ These exercise the invariants the rest of the system relies on:
 - Round-trip (dump_json -> validate_json) preserves equality without
   weakening extra="forbid", including the computed pass/abstention rates.
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -53,7 +53,7 @@ def _cv(cid, status, *, cited=None, rationale="ok"):
 
 
 def _two_turn_transcript(tid="t1"):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Transcript(
         id=tid,
         persona=_persona(),
@@ -187,7 +187,7 @@ def test_valid_abstain_verdict():
 # --- Report-level invariants + round-trip ---------------------------------
 
 def test_report_round_trip_preserves_equality_with_extras_forbidden():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     t = _two_turn_transcript()
     v = Verdict(
         transcript_id=t.id,
@@ -210,7 +210,7 @@ def test_report_round_trip_preserves_equality_with_extras_forbidden():
 
 
 def test_report_rejects_cited_turn_not_in_transcript():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     t = _two_turn_transcript()
     bad_v = Verdict(
         transcript_id=t.id,
@@ -229,7 +229,7 @@ def test_report_rejects_cited_turn_not_in_transcript():
 
 
 def test_report_rejects_duplicate_persona_ids():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # Two distinct transcripts, same persona id — a silent-undercount hazard.
     t1 = _two_turn_transcript(tid="t1")
     t2 = _two_turn_transcript(tid="t2")  # _persona() is p00 for both
@@ -257,7 +257,7 @@ def test_report_rejects_duplicate_persona_ids():
 
 
 def test_report_rejects_unknown_field():
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     t = _two_turn_transcript()
     v = Verdict(
         transcript_id=t.id,

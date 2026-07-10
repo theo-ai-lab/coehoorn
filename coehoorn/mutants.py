@@ -52,8 +52,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -534,7 +534,7 @@ def _score(
     cited turn.
     """
     pred_verdicts = [predictor(c, rubric, rules) for c in cases]
-    cache = {id(c): v for c, v in zip(cases, pred_verdicts)}
+    cache = {id(c): v for c, v in zip(cases, pred_verdicts, strict=True)}
     matrix = evaluate_gold(
         cases,
         rubric,
@@ -546,7 +546,7 @@ def _score(
     faith_num = faith_den = 0
     inrange_num = inrange_den = 0
     anchor_mismatch = 0
-    for case, pv, hv in zip(cases, pred_verdicts, honest_verdicts):
+    for case, pv, hv in zip(cases, pred_verdicts, honest_verdicts, strict=True):
         pcv = _cv_for(pv, case.criterion_id)
         hcv = _cv_for(hv, case.criterion_id)
         if pcv.status is CriterionStatus.FAIL:

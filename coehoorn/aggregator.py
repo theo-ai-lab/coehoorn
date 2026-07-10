@@ -8,9 +8,9 @@ module just wires the inputs together and writes the JSON.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 from .schemas import CriterionStatus, Report, Rubric, Transcript, Verdict
 
@@ -25,20 +25,20 @@ def build_report(
     completed_at: datetime | None = None,
     run_id: str | None = None,
 ) -> Report:
-    created = created_at or datetime.now(timezone.utc)
-    completed = completed_at or datetime.now(timezone.utc)
+    created = created_at or datetime.now(UTC)
+    completed = completed_at or datetime.now(UTC)
     # run_id is left to Report's uuid4 default for live runs; the sample
     # builder pins it (with fixed timestamps) so the committed sample report
     # is byte-reproducible — the determinism the tool claims, applied to the
     # tool's own artifact.
-    fields: dict = dict(
-        created_at=created,
-        completed_at=completed,
-        agent_endpoint=agent_endpoint,
-        rubric=rubric,
-        transcripts=list(transcripts),
-        verdicts=list(verdicts),
-    )
+    fields: dict = {
+        "created_at": created,
+        "completed_at": completed,
+        "agent_endpoint": agent_endpoint,
+        "rubric": rubric,
+        "transcripts": list(transcripts),
+        "verdicts": list(verdicts),
+    }
     if run_id is not None:
         fields["run_id"] = run_id
     return Report(**fields)

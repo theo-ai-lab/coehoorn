@@ -83,15 +83,26 @@ def _css() -> str:
     font-size: 1.3rem; letter-spacing: 0.14em; text-transform: uppercase;
     margin: 0.1rem 0 0.05rem; color: var(--sepia);
   }}
-  .cartouche .sub {{ font-style: italic; font-variant: small-caps; color: var(--sepia); letter-spacing: 0.04em; }}
-  .cartouche .tally {{ font-size: 2.7rem; line-height: 1.04; margin: 0.55rem 0 0.2rem; font-feature-settings: "lnum"; }}
+  .cartouche .sub {{
+    font-style: italic; font-variant: small-caps; color: var(--sepia);
+    letter-spacing: 0.04em;
+  }}
+  .cartouche .tally {{
+    font-size: 2.7rem; line-height: 1.04; margin: 0.55rem 0 0.2rem;
+    font-feature-settings: "lnum";
+  }}
   .cartouche .tally .n-breach {{ color: var(--breach); }}
   .cartouche .tally.clear .n-breach {{ color: var(--held); }}
   .cartouche .tally .lede {{ font-variant: small-caps; letter-spacing: 0.05em; }}
   .cartouche .verdict-prose {{ font-size: 1.02rem; margin-top: 0.35rem; color: var(--ink); }}
-  .rule {{ height: 0; border: 0; border-top: 1px solid var(--ink); box-shadow: 0 2px 0 -1px var(--rule-faint); margin: 1.4rem 0; }}
+  .rule {{
+    height: 0; border: 0; border-top: 1px solid var(--ink);
+    box-shadow: 0 2px 0 -1px var(--rule-faint); margin: 1.4rem 0;
+  }}
   figure {{ margin: 0 0 1.4rem; text-align: center; }}
-  figure figcaption {{ font-style: italic; color: var(--sepia); font-size: 0.85rem; margin-top: 0.3rem; }}
+  figure figcaption {{
+    font-style: italic; color: var(--sepia); font-size: 0.85rem; margin-top: 0.3rem;
+  }}
   svg {{ width: 100%; max-width: 660px; height: auto; }}
   .legend {{
     background: var(--paper-inset); border: 1px solid var(--rule-faint);
@@ -108,20 +119,39 @@ def _css() -> str:
   .stamp.held {{ color: var(--held); border-color: var(--held); }}
   .stamp.abstain {{ color: var(--sepia); border-color: var(--sepia); border-style: dashed; }}
   table {{ border-collapse: collapse; width: 100%; font-size: 0.86rem; margin: 0.6rem 0 1.2rem; }}
-  th, td {{ text-align: left; padding: 0.32rem 0.55rem; border-bottom: 1px solid var(--rule-faint); }}
+  th, td {{
+    text-align: left; padding: 0.32rem 0.55rem; border-bottom: 1px solid var(--rule-faint);
+  }}
   th {{ font-variant: small-caps; letter-spacing: 0.06em; border-bottom: 1.4px solid var(--ink); }}
-  details {{ border: 1px solid var(--rule-faint); border-left: 3px solid var(--rule-faint); margin-bottom: 0.6rem; background: var(--paper-inset); padding: 0.5rem 0.85rem; }}
+  details {{
+    border: 1px solid var(--rule-faint); border-left: 3px solid var(--rule-faint);
+    margin-bottom: 0.6rem; background: var(--paper-inset); padding: 0.5rem 0.85rem;
+  }}
   details[data-outcome="fail"] {{ border-left-color: var(--breach); }}
   details[data-outcome="abstain"] {{ border-left-color: var(--sepia); border-left-style: dashed; }}
-  summary {{ cursor: pointer; font-weight: 600; display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }}
+  summary {{
+    cursor: pointer; font-weight: 600; display: flex; gap: 0.5rem;
+    align-items: baseline; flex-wrap: wrap;
+  }}
   .crit {{ margin: 0.2rem 0 0.2rem 0; }}
-  .turn {{ padding: 0.4rem 0.6rem; margin: 0.28rem 0; border-left: 2.5px solid var(--rule-faint); background: rgba(110,84,54,0.05); white-space: pre-wrap; font-size: 0.9rem; }}
-  .turn .who {{ font-variant: small-caps; letter-spacing: 0.08em; font-size: 0.74rem; color: var(--sepia); }}
+  .turn {{
+    padding: 0.4rem 0.6rem; margin: 0.28rem 0; border-left: 2.5px solid var(--rule-faint);
+    background: rgba(110,84,54,0.05); white-space: pre-wrap; font-size: 0.9rem;
+  }}
+  .turn .who {{
+    font-variant: small-caps; letter-spacing: 0.08em; font-size: 0.74rem; color: var(--sepia);
+  }}
   .turn.worst {{ border-left: 3px solid var(--breach); background: rgba(158,43,37,0.07); }}
   .turn.cited:not(.worst) {{ border-left: 2.5px dashed var(--breach); }}
   .tools {{ margin-top: 0.3rem; font-size: 0.8rem; color: var(--sepia); }}
-  .tool-call {{ font-family: {_MONO}; background: rgba(39,75,109,0.10); color: var(--ditch); padding: 0 0.32rem; margin-right: 0.3rem; }}
-  footer {{ margin-top: 1.8rem; font-size: 0.78rem; color: var(--sepia); font-style: italic; text-align: center; }}
+  .tool-call {{
+    font-family: {_MONO}; background: rgba(39,75,109,0.10); color: var(--ditch);
+    padding: 0 0.32rem; margin-right: 0.3rem;
+  }}
+  footer {{
+    margin-top: 1.8rem; font-size: 0.78rem; color: var(--sepia);
+    font-style: italic; text-align: center;
+  }}
   a:focus-visible, summary:focus-visible {{ outline: 2px solid var(--ditch); outline-offset: 2px; }}
   @media (prefers-reduced-motion: reduce) {{ * {{ transition: none !important; }} }}
   @media print {{
@@ -173,7 +203,8 @@ def _fort_svg(report: Report) -> str:
     parts.append(
         '<defs><pattern id="masonry" width="9" height="9" patternUnits="userSpaceOnUse" '
         'patternTransform="rotate(45)">'
-        '<line x1="0" y1="0" x2="0" y2="9" stroke="#6E5436" stroke-width="0.5" stroke-opacity="0.35"/>'
+        '<line x1="0" y1="0" x2="0" y2="9" stroke="#6E5436" stroke-width="0.5" '
+        'stroke-opacity="0.35"/>'
         "</pattern></defs>"
     )
     # ditch / trust boundary (hexagon ring at moat radius)
@@ -215,10 +246,12 @@ def _fort_svg(report: Report) -> str:
             g1, g2 = _lerp(a, b, 0.34), _lerp(a, b, 0.66)
             tip = (mid[0] - ux * 17, mid[1] - uy * 17)
             parts.append(
-                f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{g1[0]:.1f}" y2="{g1[1]:.1f}" stroke="#2A2622" stroke-width="3"/>'
+                f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{g1[0]:.1f}" y2="{g1[1]:.1f}" '
+                'stroke="#2A2622" stroke-width="3"/>'
             )
             parts.append(
-                f'<line x1="{g2[0]:.1f}" y1="{g2[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}" stroke="#2A2622" stroke-width="3"/>'
+                f'<line x1="{g2[0]:.1f}" y1="{g2[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}" '
+                'stroke="#2A2622" stroke-width="3"/>'
             )
             parts.append(
                 f'<line class="approach breach" x1="{anchor[0]:.1f}" y1="{anchor[1]:.1f}" '
@@ -240,22 +273,26 @@ def _fort_svg(report: Report) -> str:
         else:
             # intact wall segment
             parts.append(
-                f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}" stroke="#2A2622" stroke-width="3"/>'
+                f'<line x1="{a[0]:.1f}" y1="{a[1]:.1f}" x2="{b[0]:.1f}" y2="{b[1]:.1f}" '
+                'stroke="#2A2622" stroke-width="3"/>'
             )
             if outcome is VerdictOutcome.PASS:
                 cls, stroke, dash, color = "approach held", "#4E6B4F", "5 4", "#4E6B4F"
                 tag = arch_name
                 # cross-stroke at the ditch: this approach was turned away
                 parts.append(
-                    f'<line class="repulse" x1="{moat_pt[0] - px * 5:.1f}" y1="{moat_pt[1] - py * 5:.1f}" '
-                    f'x2="{moat_pt[0] + px * 5:.1f}" y2="{moat_pt[1] + py * 5:.1f}" stroke="#4E6B4F" stroke-width="2"/>'
+                    f'<line class="repulse" x1="{moat_pt[0] - px * 5:.1f}" '
+                    f'y1="{moat_pt[1] - py * 5:.1f}" '
+                    f'x2="{moat_pt[0] + px * 5:.1f}" y2="{moat_pt[1] + py * 5:.1f}" '
+                    'stroke="#4E6B4F" stroke-width="2"/>'
                 )
             elif outcome is VerdictOutcome.ABSTAIN:
                 cls, stroke, dash, color = "approach abstain", "#6E5436", "1 4", "#6E5436"
                 tag = f"{arch_name} · abstained"
                 # hollow dot at the anchor: no judgment was rendered
                 parts.append(
-                    f'<circle class="abstain-mark" cx="{anchor[0]:.1f}" cy="{anchor[1]:.1f}" r="3.4" '
+                    f'<circle class="abstain-mark" cx="{anchor[0]:.1f}" '
+                    f'cy="{anchor[1]:.1f}" r="3.4" '
                     f'fill="#EFE7D3" stroke="#6E5436" stroke-width="1.3"/>'
                 )
             else:
@@ -274,7 +311,8 @@ def _fort_svg(report: Report) -> str:
     # corner bastions (small marks at each vertex) for the star-fort read
     for x, y in verts:
         parts.append(
-            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.1" fill="#EFE7D3" stroke="#2A2622" stroke-width="1.4"/>'
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.1" '
+            'fill="#EFE7D3" stroke="#2A2622" stroke-width="1.4"/>'
         )
     parts.extend(label_lines)
     parts.append(
@@ -507,7 +545,8 @@ def render_report_html(report: Report, judge_eval=None) -> str:
         f'<span class="lede">of {total} approaches</span></div>'
         f'<div class="verdict-prose">{_esc(_cartouche_prose(report))}</div>'
         f'<div class="token" style="margin-top:0.5rem">run {_esc(report.run_id)} · '
-        f"{_esc(report.created_at.isoformat())} &rarr; {_esc(report.completed_at.isoformat())}</div>"
+        f"{_esc(report.created_at.isoformat())} &rarr; "
+        f"{_esc(report.completed_at.isoformat())}</div>"
         "</div>"
     )
     figure = (

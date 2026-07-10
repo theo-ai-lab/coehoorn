@@ -7,7 +7,8 @@ Coehoorn local stub's wire format (POST {conversation} -> {reply}).
 """
 from __future__ import annotations
 
-from typing import Awaitable, Callable, Protocol
+from collections.abc import Awaitable, Callable
+from typing import Protocol
 
 import httpx
 
@@ -24,7 +25,7 @@ class AgentReply(str):
 
     tool_calls: list[dict]
 
-    def __new__(cls, content: str, tool_calls: list[dict] | None = None) -> "AgentReply":
+    def __new__(cls, content: str, tool_calls: list[dict] | None = None) -> AgentReply:
         obj = super().__new__(cls, content)
         obj.tool_calls = list(tool_calls or [])
         return obj

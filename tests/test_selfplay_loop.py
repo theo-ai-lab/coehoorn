@@ -15,13 +15,14 @@ from __future__ import annotations
 
 import random
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from coehoorn.agent_adapter import CallableAdapter
 from coehoorn.meta_eval import load_gold_cases
+from coehoorn.metamorphic import heuristic_runner
 from coehoorn.rubric_parser import parse_rubric_file
 from coehoorn.schemas import (
     Archetype,
@@ -48,13 +49,12 @@ from coehoorn.selfplay import (
     seed_from_gold_case,
     seeds_from_gold,
 )
-from coehoorn.metamorphic import heuristic_runner
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GOLD = REPO_ROOT / "tests" / "gold" / "judge_gold.jsonl"
 COACH_RUBRIC = REPO_ROOT / "examples" / "rubric_coach.yaml"
 STUB_DIR = REPO_ROOT / "apps" / "stub-agent"
-_TS = datetime(2026, 5, 17, tzinfo=timezone.utc)
+_TS = datetime(2026, 5, 17, tzinfo=UTC)
 
 
 def _coach():

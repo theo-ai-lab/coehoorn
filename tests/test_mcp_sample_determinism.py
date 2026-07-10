@@ -7,7 +7,7 @@ pack must serialize to exactly the bytes committed under runs/sample-mcp/, so
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -24,8 +24,8 @@ from coehoorn.report_html import render_report_html
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_DIR = REPO_ROOT / "runs" / "sample-mcp"
-CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
-COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=timezone.utc)
+CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
+COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=UTC)
 
 
 async def _build_report(index: int, key: str):

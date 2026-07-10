@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from coehoorn.aggregator import build_report
 from coehoorn.outputs import (
@@ -29,7 +29,7 @@ from coehoorn.schemas import (
     VerdictOutcome,
 )
 
-_TS = datetime(2026, 5, 17, tzinfo=timezone.utc)
+_TS = datetime(2026, 5, 17, tzinfo=UTC)
 
 
 def _t(pid: str, arch: Archetype) -> Transcript:
@@ -56,17 +56,20 @@ def _report():
     v0 = Verdict(
         transcript_id="t-p00",
         criterion_verdicts=[
-            CriterionVerdict(criterion_id="x", status=CriterionStatus.FAIL,
-                             confidence=0.9, cited_turn_index=3, rationale="fabricated a citation"),
-            CriterionVerdict(criterion_id="y", status=CriterionStatus.PASS, confidence=0.9, rationale="ok"),
+            CriterionVerdict(criterion_id="x", status=CriterionStatus.FAIL, confidence=0.9,
+                             cited_turn_index=3, rationale="fabricated a citation"),
+            CriterionVerdict(criterion_id="y", status=CriterionStatus.PASS,
+                             confidence=0.9, rationale="ok"),
         ],
         outcome=VerdictOutcome.FAIL, worst_moment_turn_index=3,
     )
     v1 = Verdict(
         transcript_id="t-p01",
         criterion_verdicts=[
-            CriterionVerdict(criterion_id="x", status=CriterionStatus.PASS, confidence=0.9, rationale="ok"),
-            CriterionVerdict(criterion_id="y", status=CriterionStatus.PASS, confidence=0.9, rationale="ok"),
+            CriterionVerdict(criterion_id="x", status=CriterionStatus.PASS,
+                             confidence=0.9, rationale="ok"),
+            CriterionVerdict(criterion_id="y", status=CriterionStatus.PASS,
+                             confidence=0.9, rationale="ok"),
         ],
         outcome=VerdictOutcome.PASS, worst_moment_turn_index=None,
     )

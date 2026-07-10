@@ -61,7 +61,7 @@ class _FakeHttpAdapter:
     def __init__(self, *args, **kwargs) -> None:
         self._call = _stub_call()
 
-    async def __aenter__(self) -> "_FakeHttpAdapter":
+    async def __aenter__(self) -> _FakeHttpAdapter:
         return self
 
     async def __aexit__(self, *exc_info: object) -> bool:

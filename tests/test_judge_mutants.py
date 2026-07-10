@@ -283,7 +283,7 @@ def test_mutation_score_serializes_roundtrip():
     assert again.planted == score.planted
     assert again.caught == score.caught
     assert math.isclose(again.score, score.score, abs_tol=1e-12)
-    for a, b in zip(again.mutants, score.mutants):
+    for a, b in zip(again.mutants, score.mutants, strict=True):
         assert a.snapshot.tp == b.snapshot.tp
     assert isinstance(again.baseline, MetricSnapshot)
 
@@ -322,11 +322,11 @@ def test_cli_min_score_gate(capsys):
     parser = _build_local_parser()
     base = ["mutation-score", "--gold", str(GOLD), "--rubric", str(RUBRIC)]
 
-    high = parser.parse_args(base + ["--min-score", "0.99"])
+    high = parser.parse_args([*base, "--min-score", "0.99"])
     assert high._func(high) == 1
     assert "0.99" in capsys.readouterr().err
 
-    low = parser.parse_args(base + ["--min-score", "0.5"])
+    low = parser.parse_args([*base, "--min-score", "0.5"])
     assert low._func(low) == 0
 
     none = parser.parse_args(base)  # survivors are findings, not failures

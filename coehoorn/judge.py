@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Iterable
+from collections.abc import Iterable
 
 from pydantic import ValidationError
 
@@ -137,7 +137,7 @@ def _select_worst_moment(fail_records: list[tuple[Criterion, int]]) -> int:
     the rubric's ``weight`` and ``failure_is_critical`` earn their keep — they
     rank which breach the report leads with, not whether the transcript fails.
     """
-    criterion, turn = max(
+    _criterion, turn = max(
         fail_records,
         key=lambda r: (r[0].failure_is_critical, r[0].weight, r[1]),
     )
@@ -272,7 +272,9 @@ def judge_transcript_heuristic(
 
 
 def _serialize_transcript_for_judge(transcript: Transcript) -> str:
-    lines: list[str] = [f"Persona: {transcript.persona.name} ({transcript.persona.archetype.value})"]
+    lines: list[str] = [
+        f"Persona: {transcript.persona.name} ({transcript.persona.archetype.value})"
+    ]
     for t in transcript.turns:
         lines.append(f"[turn {t.index} | {t.role}] {t.content}")
     return "\n".join(lines)
@@ -295,7 +297,8 @@ def _build_judge_prompt(
         "markdown fences."
     )
     criteria_block = "\n".join(
-        f"- id: {c.id}\n  description: {c.description}\n  weight: {c.weight}\n  critical: {c.failure_is_critical}"
+        f"- id: {c.id}\n  description: {c.description}\n  weight: {c.weight}\n"
+        f"  critical: {c.failure_is_critical}"
         for c in rubric.criteria
     )
     transcript_block = _serialize_transcript_for_judge(transcript)

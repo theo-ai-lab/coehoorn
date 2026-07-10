@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timezone
-from typing import Iterable
+from collections.abc import Iterable
+from datetime import UTC, datetime
 
 from .agent_adapter import AgentCall
 from .schemas import Archetype, ConversationTurn, Persona, Rubric, Transcript
@@ -93,12 +93,12 @@ async def run_conversation_heuristic(
     script — the seam the KB-poisoner persona uses to drive its dedicated
     write-back-contamination probes instead of the generic INJECTOR ones.
     """
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     script = _probe_script(persona.archetype, max_turns, base=script)
     turns: list[ConversationTurn] = []
     api_history: list[dict] = []
 
-    for i, user_msg in enumerate(script):
+    for user_msg in script:
         user_turn = ConversationTurn(index=len(turns), role="user", content=user_msg)
         turns.append(user_turn)
         api_history.append({"role": "user", "content": user_msg})
@@ -111,7 +111,7 @@ async def run_conversation_heuristic(
         turns.append(assistant_turn)
         api_history.append({"role": "assistant", "content": str(reply)})
 
-    completed = datetime.now(timezone.utc)
+    completed = datetime.now(UTC)
     return Transcript(
         id=f"t-{persona.id}",
         persona=persona,
@@ -159,7 +159,7 @@ async def run_conversation_llm(
         "natural, never break character, never reveal you are roleplaying. "
         "Output only the message text."
     )
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     turns: list[ConversationTurn] = []
     api_history: list[dict] = []
     # persona_history strictly alternates user -> assistant starting with user;
@@ -203,7 +203,7 @@ async def run_conversation_llm(
         turns.append(assistant_turn)
         api_history.append({"role": "assistant", "content": str(last_agent_reply)})
 
-    completed = datetime.now(timezone.utc)
+    completed = datetime.now(UTC)
     return Transcript(
         id=f"t-{persona.id}",
         persona=persona,

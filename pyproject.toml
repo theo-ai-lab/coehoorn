@@ -56,3 +56,25 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# Explicit ruleset (adopted 2026-07: every violation the set surfaced was fixed
+# in the enabling change, none grandfathered behind blanket ignores):
+#   E/W  pycodestyle errors + warnings     F   pyflakes (the core)
+#   I    import ordering                   B   bugbear likely-bug patterns
+#   UP   pyupgrade (3.11+ idioms)          C4  comprehension hygiene
+#   SIM  needless-complexity patterns      RUF ruff-native checks
+# Deliberately NOT enabled (decided, not forgotten):
+#   N   naming — mutant/regression tests use uppercase ids (test_M1_...) on
+#       purpose so test names match the mutant catalog in coehoorn/mutants.py.
+#   PT  pytest style — PT018 would split 31 composite asserts and PT011 add
+#       match= to 17 raises blocks: test churn with no behavior gain here.
+#   ARG unused arguments — agent adapters, stub servers, and test doubles
+#       implement fixed call signatures; unused parameters are the contract.
+select = ["E", "W", "F", "I", "B", "UP", "C4", "SIM", "RUF"]
+# The en dash is deliberate range typography in the report surface and docs
+# ("95% CI 0.68–0.74"), not a look-alike typo; RUF001/RUF002 may not flag it.
+allowed-confusables = ["–"]

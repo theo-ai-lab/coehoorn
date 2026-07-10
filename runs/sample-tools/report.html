@@ -31,15 +31,26 @@
     font-size: 1.3rem; letter-spacing: 0.14em; text-transform: uppercase;
     margin: 0.1rem 0 0.05rem; color: var(--sepia);
   }
-  .cartouche .sub { font-style: italic; font-variant: small-caps; color: var(--sepia); letter-spacing: 0.04em; }
-  .cartouche .tally { font-size: 2.7rem; line-height: 1.04; margin: 0.55rem 0 0.2rem; font-feature-settings: "lnum"; }
+  .cartouche .sub {
+    font-style: italic; font-variant: small-caps; color: var(--sepia);
+    letter-spacing: 0.04em;
+  }
+  .cartouche .tally {
+    font-size: 2.7rem; line-height: 1.04; margin: 0.55rem 0 0.2rem;
+    font-feature-settings: "lnum";
+  }
   .cartouche .tally .n-breach { color: var(--breach); }
   .cartouche .tally.clear .n-breach { color: var(--held); }
   .cartouche .tally .lede { font-variant: small-caps; letter-spacing: 0.05em; }
   .cartouche .verdict-prose { font-size: 1.02rem; margin-top: 0.35rem; color: var(--ink); }
-  .rule { height: 0; border: 0; border-top: 1px solid var(--ink); box-shadow: 0 2px 0 -1px var(--rule-faint); margin: 1.4rem 0; }
+  .rule {
+    height: 0; border: 0; border-top: 1px solid var(--ink);
+    box-shadow: 0 2px 0 -1px var(--rule-faint); margin: 1.4rem 0;
+  }
   figure { margin: 0 0 1.4rem; text-align: center; }
-  figure figcaption { font-style: italic; color: var(--sepia); font-size: 0.85rem; margin-top: 0.3rem; }
+  figure figcaption {
+    font-style: italic; color: var(--sepia); font-size: 0.85rem; margin-top: 0.3rem;
+  }
   svg { width: 100%; max-width: 660px; height: auto; }
   .legend {
     background: var(--paper-inset); border: 1px solid var(--rule-faint);
@@ -56,20 +67,39 @@
   .stamp.held { color: var(--held); border-color: var(--held); }
   .stamp.abstain { color: var(--sepia); border-color: var(--sepia); border-style: dashed; }
   table { border-collapse: collapse; width: 100%; font-size: 0.86rem; margin: 0.6rem 0 1.2rem; }
-  th, td { text-align: left; padding: 0.32rem 0.55rem; border-bottom: 1px solid var(--rule-faint); }
+  th, td {
+    text-align: left; padding: 0.32rem 0.55rem; border-bottom: 1px solid var(--rule-faint);
+  }
   th { font-variant: small-caps; letter-spacing: 0.06em; border-bottom: 1.4px solid var(--ink); }
-  details { border: 1px solid var(--rule-faint); border-left: 3px solid var(--rule-faint); margin-bottom: 0.6rem; background: var(--paper-inset); padding: 0.5rem 0.85rem; }
+  details {
+    border: 1px solid var(--rule-faint); border-left: 3px solid var(--rule-faint);
+    margin-bottom: 0.6rem; background: var(--paper-inset); padding: 0.5rem 0.85rem;
+  }
   details[data-outcome="fail"] { border-left-color: var(--breach); }
   details[data-outcome="abstain"] { border-left-color: var(--sepia); border-left-style: dashed; }
-  summary { cursor: pointer; font-weight: 600; display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
+  summary {
+    cursor: pointer; font-weight: 600; display: flex; gap: 0.5rem;
+    align-items: baseline; flex-wrap: wrap;
+  }
   .crit { margin: 0.2rem 0 0.2rem 0; }
-  .turn { padding: 0.4rem 0.6rem; margin: 0.28rem 0; border-left: 2.5px solid var(--rule-faint); background: rgba(110,84,54,0.05); white-space: pre-wrap; font-size: 0.9rem; }
-  .turn .who { font-variant: small-caps; letter-spacing: 0.08em; font-size: 0.74rem; color: var(--sepia); }
+  .turn {
+    padding: 0.4rem 0.6rem; margin: 0.28rem 0; border-left: 2.5px solid var(--rule-faint);
+    background: rgba(110,84,54,0.05); white-space: pre-wrap; font-size: 0.9rem;
+  }
+  .turn .who {
+    font-variant: small-caps; letter-spacing: 0.08em; font-size: 0.74rem; color: var(--sepia);
+  }
   .turn.worst { border-left: 3px solid var(--breach); background: rgba(158,43,37,0.07); }
   .turn.cited:not(.worst) { border-left: 2.5px dashed var(--breach); }
   .tools { margin-top: 0.3rem; font-size: 0.8rem; color: var(--sepia); }
-  .tool-call { font-family: 'SF Mono','Cascadia Mono','DejaVu Sans Mono','Consolas',monospace; background: rgba(39,75,109,0.10); color: var(--ditch); padding: 0 0.32rem; margin-right: 0.3rem; }
-  footer { margin-top: 1.8rem; font-size: 0.78rem; color: var(--sepia); font-style: italic; text-align: center; }
+  .tool-call {
+    font-family: 'SF Mono','Cascadia Mono','DejaVu Sans Mono','Consolas',monospace; background: rgba(39,75,109,0.10); color: var(--ditch);
+    padding: 0 0.32rem; margin-right: 0.3rem;
+  }
+  footer {
+    margin-top: 1.8rem; font-size: 0.78rem; color: var(--sepia);
+    font-style: italic; text-align: center;
+  }
   a:focus-visible, summary:focus-visible { outline: 2px solid var(--ditch); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   @media print {

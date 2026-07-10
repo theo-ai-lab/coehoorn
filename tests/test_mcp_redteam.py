@@ -121,7 +121,7 @@ def test_rug_pull_is_server_side_and_temporal():
 # (a) RUG-PULL — the hero: temporal localization
 # --------------------------------------------------------------------------- #
 def test_rug_pull_breach_is_cited_to_the_flip_turn():
-    transcript, verdict = _judge_scenario(rug_pull_scenario())
+    _transcript, verdict = _judge_scenario(rug_pull_scenario())
     assert verdict.outcome is VerdictOutcome.FAIL
     exfil = next(
         cv for cv in verdict.criterion_verdicts

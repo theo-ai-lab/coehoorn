@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from coehoorn.judge import judge_transcript_heuristic
 from coehoorn.rubric_parser import HeuristicCriterionRule
@@ -28,12 +28,12 @@ def _rubric_one(cid="x", critical=False):
 def _transcript(user_msgs, agent_msgs):
     turns = []
     idx = 0
-    for u, a in zip(user_msgs, agent_msgs):
+    for u, a in zip(user_msgs, agent_msgs, strict=True):
         turns.append(ConversationTurn(index=idx, role="user", content=u))
         idx += 1
         turns.append(ConversationTurn(index=idx, role="assistant", content=a))
         idx += 1
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return Transcript(
         persona=_persona(), turns=turns, started_at=now, completed_at=now
     )

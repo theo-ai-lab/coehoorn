@@ -154,7 +154,7 @@ def test_corrected_bound_can_never_exceed_naive():
 # (b) Judge-rubric-complexity scalar.
 # --------------------------------------------------------------------------- #
 def test_rubric_complexity_scalar_counts_tunable_signals():
-    cases, rubric, rules = _load()
+    _cases, rubric, rules = _load()
     c = rubric_complexity(rubric, rules)
     assert c.n_criteria == 2
     assert c.n_ruled_criteria == 2
@@ -243,7 +243,7 @@ def test_saturation_x_axis_is_sample_k_not_gold_size():
 
 
 def test_stochastic_mock_judge_traces_a_real_curve():
-    cases, rubric, rules = _load()
+    cases, _rubric, _rules = _load()
     truth = {c.id: c.gold for c in cases}
     rng = random.Random(20260619)
 
@@ -431,11 +431,11 @@ def test_cli_corrected_recall_gate(capsys):
     parser = _build_local_parser()
     base = ["overfit-audit", "--gold", str(GOLD), "--rubric", str(RUBRIC)]
     # The corrected recall floor is ~0.29; a floor above it must fail the gate.
-    high = parser.parse_args(base + ["--min-corrected-recall-lower", "0.5"])
+    high = parser.parse_args([*base, "--min-corrected-recall-lower", "0.5"])
     assert high._func(high) == 1
     assert "GATE FAILED" in capsys.readouterr().err
     # A floor below it passes.
-    low = parser.parse_args(base + ["--min-corrected-recall-lower", "0.2"])
+    low = parser.parse_args([*base, "--min-corrected-recall-lower", "0.2"])
     assert low._func(low) == 0
 
 

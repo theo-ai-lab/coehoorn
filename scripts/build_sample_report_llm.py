@@ -18,7 +18,7 @@ import asyncio
 import os
 import random
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -48,7 +48,7 @@ TURNS = 3
 
 def _stub_adapter() -> CallableAdapter:
     random.seed(SEED)
-    from app import app  # noqa: E402
+    from app import app
 
     client = app.test_client()
 
@@ -81,7 +81,7 @@ async def main() -> int:
     print(f"got {len(personas)} personas: {[p.id for p in personas]}")
 
     agent = _stub_adapter()
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     print("running conversations ...")
     transcripts = await run_conversations(
         personas, agent, max_turns=TURNS, mode="llm",
@@ -91,7 +91,7 @@ async def main() -> int:
     print("judging ...")
     # Heuristic-rules dict is ignored in LLM mode; pass empty to satisfy signature.
     verdicts = judge_all(transcripts, rubric, {}, mode="llm")
-    completed = datetime.now(timezone.utc)
+    completed = datetime.now(UTC)
 
     report = build_report(
         rubric=rubric, transcripts=transcripts, verdicts=verdicts,

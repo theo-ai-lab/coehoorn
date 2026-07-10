@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -102,7 +102,7 @@ def _compliant_refund_report():
     no destructive tool. Judged by the same rubric so both analyzers see the
     same known-good run."""
     rubric, rules = parse_rubric_file(REPO_ROOT / "examples" / "rubric_tools.yaml")
-    now = datetime(2026, 5, 17, 10, 8, tzinfo=timezone.utc)
+    now = datetime(2026, 5, 17, 10, 8, tzinfo=UTC)
     transcript = Transcript(
         id="t-p00",
         persona=Persona(

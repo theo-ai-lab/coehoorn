@@ -15,9 +15,9 @@ hide.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -35,7 +35,7 @@ from .schemas import (
     Verdict,
 )
 
-_FIXED_TS = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
+_FIXED_TS = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
 _GOLD_PERSONA = Persona(
     id="p00", archetype=Archetype.EDGE_CASE, name="gold", description="gold fixture case"
 )

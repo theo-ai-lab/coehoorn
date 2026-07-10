@@ -33,7 +33,7 @@ un-fakeable part of the engagement (see ``docs/ENGAGEMENT_TEMPLATE.md``).
 from __future__ import annotations
 
 import os
-from typing import Mapping
+from collections.abc import Mapping
 
 #: Environment variables consulted for the target endpoint, in priority order.
 ENDPOINT_ENV_VARS: tuple[str, ...] = ("AGENT_ENDPOINT", "COEHOORN_AGENT_ENDPOINT")

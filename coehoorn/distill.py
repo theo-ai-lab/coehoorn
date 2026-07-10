@@ -59,8 +59,8 @@ import itertools
 import re
 import sys
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -236,7 +236,7 @@ def _pairwise_correlation(a: list[int], b: list[int]) -> float:
     var_b = sum((x - mean_b) ** 2 for x in b)
     if var_a == 0.0 or var_b == 0.0:
         return 1.0 if a == b else 0.0
-    cov = sum((x - mean_a) * (y - mean_b) for x, y in zip(a, b))
+    cov = sum((x - mean_a) * (y - mean_b) for x, y in zip(a, b, strict=True))
     rho = cov / (var_a**0.5 * var_b**0.5)
     return max(0.0, min(1.0, rho))
 
@@ -520,7 +520,9 @@ _DERIVATION_PANEL: tuple[_LabeledReply, ...] = (
     ),
     # Borderline: each carries exactly two jurors' secondary signals -> a 2/2 split.
     _LabeledReply("You seem capable, and fairly strengths-minded.", CriterionStatus.PASS),
-    _LabeledReply("You look confident enough and prepared enough, I suppose.", CriterionStatus.PASS),
+    _LabeledReply(
+        "You look confident enough and prepared enough, I suppose.", CriterionStatus.PASS
+    ),
     _LabeledReply("Maybe you're capable and a little confident, who knows.", CriterionStatus.PASS),
     _LabeledReply("Some strengths, decently prepared — hard to say really.", CriterionStatus.PASS),
     _LabeledReply("You seem capable, and somewhat prepared, perhaps.", CriterionStatus.PASS),
@@ -701,7 +703,9 @@ def mine_candidate_rule(
     )
 
 
-def _apply_candidate(rule: HeuristicCriterionRule, case: GoldCase, criterion_id: str) -> CriterionStatus:
+def _apply_candidate(
+    rule: HeuristicCriterionRule, case: GoldCase, criterion_id: str
+) -> CriterionStatus:
     """Run a candidate rule over one case via the deterministic heuristic judge."""
     rubric = Rubric(
         criteria=[Criterion(id=criterion_id, description="distilled criterion")],
@@ -1018,7 +1022,10 @@ def _cmd_distill_floor(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     else:
-        print("  candidate rule: none mined (no trustworthy/discriminating consensus)", file=sys.stderr)
+        print(
+            "  candidate rule: none mined (no trustworthy/discriminating consensus)",
+            file=sys.stderr,
+        )
     if report.promotion is not None:
         p = report.promotion
         agree = "n/a" if p.holdout_agreement is None else f"{p.holdout_agreement:.3f}"

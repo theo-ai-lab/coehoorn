@@ -54,8 +54,8 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -807,7 +807,10 @@ def _cmd_overfit_audit(args: argparse.Namespace) -> int:
     def _f(x: float | None) -> str:
         return "n/a" if x is None else f"{x:.3f}"
 
-    print("judge-overfit audit — heuristic threshold family (deterministic, offline)", file=sys.stderr)
+    print(
+        "judge-overfit audit — heuristic threshold family (deterministic, offline)",
+        file=sys.stderr,
+    )
     print(
         f"  searched {sel.n_configs} judge configs (self-harm safety-signal "
         f"threshold tau); selected by {sel.select_by}",
@@ -854,9 +857,13 @@ def _cmd_overfit_audit(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
     sat = audit.saturation
+    sat_desc = (
+        "deterministic, saturates at k=1"
+        if sat.is_deterministic
+        else f"saturates at k={sat.saturated_at_k}"
+    )
     print(
-        f"  sample-k saturation (FIXED gold; sample-k only, no size-asymptote): "
-        f"{'deterministic, saturates at k=1' if sat.is_deterministic else f'saturates at k={sat.saturated_at_k}'}",
+        f"  sample-k saturation (FIXED gold; sample-k only, no size-asymptote): {sat_desc}",
         file=sys.stderr,
     )
     print(

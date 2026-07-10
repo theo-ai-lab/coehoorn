@@ -7,7 +7,7 @@ drifts off-seed or returns a malformed proposal is rejected, not accepted.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -34,7 +34,7 @@ from coehoorn.selfplay import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GOLD = REPO_ROOT / "tests" / "gold" / "judge_gold.jsonl"
-_TS = datetime(2026, 5, 17, tzinfo=timezone.utc)
+_TS = datetime(2026, 5, 17, tzinfo=UTC)
 
 
 def _gold():

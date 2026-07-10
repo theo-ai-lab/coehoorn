@@ -32,7 +32,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -41,7 +41,6 @@ from pydantic import ValidationError
 
 from . import __version__
 from .agent_adapter import HttpAgentAdapter
-from .config import headers_from_env, resolve_endpoint
 from .aggregator import (
     build_report,
     compare_to_expected,
@@ -49,6 +48,7 @@ from .aggregator import (
     write_comparison_json,
     write_report_json,
 )
+from .config import headers_from_env, resolve_endpoint
 from .conversation import run_conversations
 from .judge import judge_all
 from .meta_eval import evaluate_gold, load_gold_cases
@@ -105,7 +105,7 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     log(f"personas: {args.personas} / turns: {args.turns}")
     log(f"rubric: {args.rubric}  (criteria: {len(rubric.criteria)})")
 
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     if mode == "llm":
         personas = generate_personas_llm(rubric, n=args.personas)
     else:
@@ -145,7 +145,7 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     log(f"ran {len(transcripts)} conversations")
 
     verdicts = judge_all(transcripts, rubric, heuristic_rules, mode=mode)
-    completed = datetime.now(timezone.utc)
+    completed = datetime.now(UTC)
     report = build_report(
         rubric=rubric, transcripts=transcripts, verdicts=verdicts,
         agent_endpoint=args.agent, created_at=started, completed_at=completed,
@@ -271,24 +271,29 @@ def _cmd_meta_eval(args: argparse.Namespace) -> int:
             return "n/a" if x is None else f"{x:.3f}"
 
         print("judge meta-eval — heuristic judge vs gold", file=sys.stderr)
-        print(f"  scored cells: {result.n_scored}  (abstained, excluded: {result.n_abstained})", file=sys.stderr)
+        print(
+            f"  scored cells: {result.n_scored}  (abstained, excluded: {result.n_abstained})",
+            file=sys.stderr,
+        )
         print(f"  confusion: TP={m.tp} FP={m.fp} FN={m.fn} TN={m.tn}", file=sys.stderr)
         print(f"  precision: {rate(m.precision)}", file=sys.stderr)
         print(f"  recall:    {rate(m.recall)}", file=sys.stderr)
-        print(f"  balanced accuracy: {num(m.balanced_accuracy)}"
-              f"   (always-breach {num(result.baseline_always_breach.balanced_accuracy)},"
-              f" always-hold {num(result.baseline_always_hold.balanced_accuracy)})", file=sys.stderr)
+        print(
+            f"  balanced accuracy: {num(m.balanced_accuracy)}"
+            f"   (always-breach {num(result.baseline_always_breach.balanced_accuracy)},"
+            f" always-hold {num(result.baseline_always_hold.balanced_accuracy)})",
+            file=sys.stderr,
+        )
         print(f"  Cohen's kappa: {num(m.cohens_kappa)}", file=sys.stderr)
 
     # Optional regression gate on the interval floor (the honest discipline).
-    if args.min_recall_lower is not None:
-        if m.recall.lower < args.min_recall_lower:
-            print(
-                f"GATE FAILED: recall lower bound {m.recall.lower:.3f} "
-                f"(n={m.recall.denominator}) < floor {args.min_recall_lower}",
-                file=sys.stderr,
-            )
-            return 1
+    if args.min_recall_lower is not None and m.recall.lower < args.min_recall_lower:
+        print(
+            f"GATE FAILED: recall lower bound {m.recall.lower:.3f} "
+            f"(n={m.recall.denominator}) < floor {args.min_recall_lower}",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
@@ -316,7 +321,9 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     run_p.add_argument("--personas", type=int, default=6, help="Number of personas (default 6).")
-    run_p.add_argument("--turns", type=int, default=4, help="Max turns per conversation (default 4).")
+    run_p.add_argument(
+        "--turns", type=int, default=4, help="Max turns per conversation (default 4)."
+    )
     run_p.add_argument(
         "--mode", choices=["heuristic", "llm", "auto"], default="auto",
         help="heuristic | llm | auto (auto = llm if ANTHROPIC_API_KEY else heuristic).",
@@ -324,7 +331,9 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--out", default="runs", help="Output directory (default runs/).")
     run_p.add_argument("--timeout", type=float, default=30.0, help="Agent HTTP timeout seconds.")
     run_p.add_argument("--concurrency", type=int, default=4, help="Max parallel conversations.")
-    run_p.add_argument("--json", action="store_true", help="Emit a JSON summary to stdout (logs to stderr).")
+    run_p.add_argument(
+        "--json", action="store_true", help="Emit a JSON summary to stdout (logs to stderr)."
+    )
     run_p.add_argument(
         "--fail-on-breach", action="store_true",
         help="Exit non-zero if any approach breached (opt-in gate semantics).",
@@ -356,7 +365,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     me_p.add_argument("--gold", required=True, help="Path to a gold JSONL fixture.")
     me_p.add_argument("--rubric", required=True, help="Rubric YAML supplying the heuristic rules.")
-    me_p.add_argument("--json", action="store_true", help="Emit the full scorecard as JSON to stdout.")
+    me_p.add_argument(
+        "--json", action="store_true", help="Emit the full scorecard as JSON to stdout."
+    )
     me_p.add_argument(
         "--min-recall-lower", type=float, default=None,
         help="Gate: exit non-zero if the recall Wilson lower bound falls below this floor.",
@@ -366,13 +377,13 @@ def build_parser() -> argparse.ArgumentParser:
     # Citation-integrity suite + self-play: each module owns its own subparser
     # surface, registered here so build_parser() stays the single CLI assembly
     # point.
-    from .mutants import register_subparser as _register_mutation_score
-    from .metamorphic import register_subparser as _register_metamorphic
-    from .overfit import register_subparser as _register_overfit_audit
     from .distill import register_subparser as _register_distill_floor
+    from .mcp_redteam import register_subparser as _register_mcp_siege
+    from .metamorphic import register_subparser as _register_metamorphic
+    from .mutants import register_subparser as _register_mutation_score
+    from .overfit import register_subparser as _register_overfit_audit
     from .selective_risk import register_subparser as _register_selective_risk
     from .selfplay.cli import register_subparser as _register_self_play
-    from .mcp_redteam import register_subparser as _register_mcp_siege
 
     _register_mutation_score(sub)
     _register_metamorphic(sub)

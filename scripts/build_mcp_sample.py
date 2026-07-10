@@ -12,7 +12,7 @@ Re-run with: `uv run python scripts/build_mcp_sample.py`.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from coehoorn.aggregator import build_report, pin_report_timestamps, write_report_json
@@ -22,8 +22,8 @@ from coehoorn.report_html import write_report_html
 from coehoorn.schemas import CriterionStatus, VerdictOutcome
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
-COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=timezone.utc)
+CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
+COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=UTC)
 
 
 async def main() -> int:

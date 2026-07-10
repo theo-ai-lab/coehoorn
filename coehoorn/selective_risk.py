@@ -53,7 +53,7 @@ from __future__ import annotations
 import argparse
 import math
 import sys
-from typing import Callable
+from collections.abc import Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -454,7 +454,10 @@ def _cmd_selective_risk(args: argparse.Namespace) -> int:
         return _risk_exit_code(report, args)
 
     c = report.certificate
-    risk = "n/a" if c.empirical_selective_risk.value is None else f"{c.empirical_selective_risk.value:.3f}"
+    risk = (
+        "n/a" if c.empirical_selective_risk.value is None
+        else f"{c.empirical_selective_risk.value:.3f}"
+    )
     print(
         f"selective-risk certificate — {c.judge_name} on a conjectured unseen siege",
         file=sys.stderr,

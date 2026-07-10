@@ -25,8 +25,8 @@ ANTHROPIC_API_KEY; that path is clearly marked and never fabricated by the stub.
 from __future__ import annotations
 
 from .conjecturer import (
-    Conjecturer,
     ConjecturedAttack,
+    Conjecturer,
     ConjecturerModel,
     RawConjecture,
     Seed,
@@ -51,8 +51,8 @@ from .loop import (
 
 __all__ = [
     "AttackEvaluation",
-    "Conjecturer",
     "ConjecturedAttack",
+    "Conjecturer",
     "ConjecturerModel",
     "GuideScore",
     "RawConjecture",

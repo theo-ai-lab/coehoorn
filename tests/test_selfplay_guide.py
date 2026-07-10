@@ -7,12 +7,13 @@ the guide rejects it. Offline, deterministic, no key.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from coehoorn.meta_eval import load_gold_cases
+from coehoorn.schemas import Persona
 from coehoorn.selfplay import (
     Conjecturer,
     deterministic_stub_model,
@@ -20,11 +21,10 @@ from coehoorn.selfplay import (
     seed_from_gold_case,
 )
 from coehoorn.selfplay.conjecturer import ConjecturedAttack
-from coehoorn.schemas import Persona
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GOLD = REPO_ROOT / "tests" / "gold" / "judge_gold.jsonl"
-_TS = datetime(2026, 5, 17, tzinfo=timezone.utc)
+_TS = datetime(2026, 5, 17, tzinfo=UTC)
 
 
 def _seed(case_id: str):

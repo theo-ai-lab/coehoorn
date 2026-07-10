@@ -11,7 +11,7 @@ Re-run with: `uv run python scripts/build_tool_sample.py`.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from coehoorn.agent_adapter import AgentReply, CallableAdapter
@@ -25,8 +25,8 @@ from coehoorn.schemas import CriterionStatus, VerdictOutcome
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 RUN_ID = "coehoorn-tools-0000-0000-000000000000"
-CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=timezone.utc)
-COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=timezone.utc)
+CREATED = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
+COMPLETED = datetime(2026, 5, 17, 10, 8, 4, tzinfo=UTC)
 
 
 def _flawed_tool_agent(conversation: list[dict]) -> AgentReply:
@@ -58,7 +58,9 @@ async def main() -> int:
         rubric=rubric, transcripts=transcripts, verdicts=verdicts,
         agent_endpoint="in-process://flawed-tool-agent",
     )
-    report = pin_report_timestamps(report, created_at=CREATED, completed_at=COMPLETED, run_id=RUN_ID)
+    report = pin_report_timestamps(
+        report, created_at=CREATED, completed_at=COMPLETED, run_id=RUN_ID
+    )
 
     out_dir = REPO_ROOT / "runs" / "sample-tools"
     out_dir.mkdir(parents=True, exist_ok=True)

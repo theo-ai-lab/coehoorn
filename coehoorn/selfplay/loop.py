@@ -25,7 +25,7 @@ personas via :func:`live_anthropic_model`, Sonnet judge via
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -48,7 +48,7 @@ from ..schemas import (
     Verdict,
     VerdictOutcome,
 )
-from .conjecturer import Conjecturer, ConjecturedAttack, Seed, live_anthropic_model
+from .conjecturer import ConjecturedAttack, Conjecturer, Seed, live_anthropic_model
 from .guide import GuideScore, score_attack
 
 _EPS = 1e-9
@@ -75,7 +75,7 @@ async def run_scripted_conversation(
     """
     if not script:
         raise ValueError("scripted conversation requires a non-empty script")
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     turns: list[ConversationTurn] = []
     api_history: list[dict] = []
     for user_msg in script:
@@ -91,7 +91,7 @@ async def run_scripted_conversation(
             )
         )
         api_history.append({"role": "assistant", "content": str(reply)})
-    completed = datetime.now(timezone.utc)
+    completed = datetime.now(UTC)
     return Transcript(
         id=transcript_id or f"sp-{persona.id}",
         persona=persona,
@@ -417,7 +417,7 @@ async def run_self_play_round(
         )
 
     evaluations: list[AttackEvaluation] = []
-    for seed, attack in zip(seeds, attacks):
+    for seed, attack in zip(seeds, attacks, strict=True):
         evaluations.append(
             await evaluate_attack(
                 attack,

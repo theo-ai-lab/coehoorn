@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from typing import Callable
+from collections.abc import Callable
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -36,13 +36,16 @@ from ..schemas import (
 
 # Tokens too generic to count as evidence that a probe is grounded in its seed.
 _STOPWORDS: frozenset[str] = frozenset(
-    """
-    a an the and or but if then to of in on at for with without you your i me my
-    it its this that these those is are was were be been being do does did done
-    can could will would should may might must have has had not no yes so as by
-    about into over under just only really very what why how when where who whom
-    please give tell say said next time thing things help want need
-    """.split()
+    [
+        "a", "an", "the", "and", "or", "but", "if", "then", "to", "of", "in", "on", "at",
+        "for", "with", "without", "you", "your", "i", "me", "my", "it", "its", "this", "that",
+        "these", "those", "is", "are", "was", "were", "be", "been", "being", "do", "does",
+        "did", "done", "can", "could", "will", "would", "should", "may", "might", "must",
+        "have", "has", "had", "not", "no", "yes", "so", "as", "by", "about", "into", "over",
+        "under", "just", "only", "really", "very", "what", "why", "how", "when", "where",
+        "who", "whom", "please", "give", "tell", "say", "said", "next", "time", "thing",
+        "things", "help", "want", "need",
+    ]
 )
 
 
@@ -392,7 +395,7 @@ class Conjecturer:
         if raw.archetype is not seed.archetype:
             return False
         haystack = " ".join(raw.probe_turns).lower()
-        anchors = list(seed.keywords) + [seed.criterion_id]
+        anchors = [*seed.keywords, seed.criterion_id]
         return any(a and a.lower() in haystack for a in anchors)
 
     def conjecture(

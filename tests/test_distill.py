@@ -315,7 +315,7 @@ def test_llm_jury_raises_without_key(monkeypatch):
 
 
 def test_llm_jury_requires_a_model(monkeypatch):
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-not-real")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "unit-test-placeholder")
     rubric = Rubric.model_validate(
         {"criteria": [{"id": "tone_is_supportive", "description": "tone"}],
          "overall_pass_threshold": 1.0}
@@ -357,10 +357,10 @@ def test_cli_distill_floor_json_and_human(capsys):
 def test_cli_distill_replaceable_gate(capsys):
     p = _parser()
     base = ["distill-floor", "--rubric", RUBRIC]
-    high = p.parse_args(base + ["--min-replaceable-fraction", "0.95"])
+    high = p.parse_args([*base, "--min-replaceable-fraction", "0.95"])
     assert high._func(high) == 1
     assert "GATE FAILED" in capsys.readouterr().err
-    low = p.parse_args(base + ["--min-replaceable-fraction", "0.8"])
+    low = p.parse_args([*base, "--min-replaceable-fraction", "0.8"])
     assert low._func(low) == 0
 
 

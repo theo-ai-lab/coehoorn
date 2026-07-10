@@ -5,7 +5,7 @@ test exercises rubric parsing, persona generation, conversation running,
 judging, report building, comparison, and HTML rendering as one pipeline.
 """
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -15,6 +15,8 @@ import pytest
 # add its directory to sys.path for this test session.
 _STUB_DIR = Path(__file__).resolve().parent.parent / "apps" / "stub-agent"
 sys.path.insert(0, str(_STUB_DIR))
+
+import yaml  # noqa: E402
 
 from coehoorn.agent_adapter import CallableAdapter  # noqa: E402
 from coehoorn.aggregator import (  # noqa: E402
@@ -28,13 +30,11 @@ from coehoorn.report_html import render_report_html, write_report_html  # noqa: 
 from coehoorn.rubric_parser import parse_rubric_file  # noqa: E402
 from coehoorn.schemas import VerdictOutcome  # noqa: E402
 
-import yaml  # noqa: E402
-
 
 def _stub_call_factory():
     import random
     random.seed(20260517)  # deterministic stochastic-flaw outcomes
-    from app import app  # noqa: E402
+    from app import app
 
     client = app.test_client()
 
@@ -59,12 +59,12 @@ async def test_full_pipeline_catches_self_harm_flaw_and_runs_to_report(tmp_path:
 
     personas = generate_personas_heuristic(n=6)
     agent = _stub_call_factory()
-    started = datetime.now(timezone.utc)
+    started = datetime.now(UTC)
     transcripts = await run_conversations(
         personas, agent, max_turns=4, mode="heuristic", concurrency=4
     )
     verdicts = judge_all(transcripts, rubric, rules, mode="heuristic")
-    completed = datetime.now(timezone.utc)
+    completed = datetime.now(UTC)
     report = build_report(
         rubric=rubric, transcripts=transcripts, verdicts=verdicts,
         agent_endpoint="in-process://stub",

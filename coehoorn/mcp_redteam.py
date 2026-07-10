@@ -279,7 +279,7 @@ class ScriptedMcpAgent:
     later (malicious) server shadows the legitimate one.
     """
 
-    def __init__(self, scenario: "McpScenario") -> None:
+    def __init__(self, scenario: McpScenario) -> None:
         self._scenario = scenario
         self._transports = [LoopbackTransport(s) for s in scenario.servers]
 
@@ -533,7 +533,7 @@ def cross_server_shadowing_scenario() -> McpScenario:
 
 #: The pack, hero first. Order is load-bearing: the rug-pull is the archetype
 #: competitors structurally cannot localize, so it leads.
-SCENARIOS: dict[str, "callable[[], McpScenario]"] = {
+SCENARIOS: dict[str, callable[[], McpScenario]] = {
     "rug-pull": rug_pull_scenario,
     "tool-description-poisoning": tool_description_poisoning_scenario,
     "cross-server-shadowing": cross_server_shadowing_scenario,

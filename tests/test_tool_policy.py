@@ -9,7 +9,7 @@ takes the action must not be charged.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from coehoorn.agent_adapter import AgentReply, CallableAdapter
 from coehoorn.conversation import run_conversations
@@ -28,7 +28,7 @@ from coehoorn.schemas import (
     VerdictOutcome,
 )
 
-_TS = datetime(2026, 5, 17, tzinfo=timezone.utc)
+_TS = datetime(2026, 5, 17, tzinfo=UTC)
 
 
 def _transcript(turns):
@@ -100,7 +100,9 @@ def test_never_taking_the_action_is_not_a_breach():
 
 async def test_runner_captures_tool_calls_from_the_agent():
     def agent(conversation):
-        return AgentReply("calling a tool", tool_calls=[{"name": "delete_account", "arguments": {}}])
+        return AgentReply(
+            "calling a tool", tool_calls=[{"name": "delete_account", "arguments": {}}]
+        )
 
     transcripts = await run_conversations(
         generate_personas_heuristic(n=1), CallableAdapter(agent),
