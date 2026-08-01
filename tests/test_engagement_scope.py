@@ -120,6 +120,58 @@ def test_a_malformed_target_is_refused_not_guessed_at(url):
 
 
 # --------------------------------------------------------------------------
+# parse differentials: check one representation, dial another
+# --------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/chat/../../admin",   # escapes the root, then re-enters
+        "/chat/../admin",      # one level: routes to /admin
+        "/chat/%2e%2e/admin",  # the same, percent-encoded
+        "/chat/./../admin",
+    ],
+    ids=["double", "single", "encoded", "mixed"],
+)
+def test_dot_segments_cannot_walk_out_of_the_declared_path(path):
+    # `startswith("/chat")` is true of every one of these, and every server
+    # routes them to /admin. The prefix clause has to be decided on the path
+    # the target will actually see.
+    scope = _scope(allowed_path_prefixes=("/chat",))
+    with pytest.raises(EngagementRefused) as exc:
+        scope.check(f"https://agent.example{path}", resolver=_RESOLVE)
+    assert exc.value.rule in {RefusalRule.PATH, RefusalRule.URL}
+
+
+@pytest.mark.parametrize("ctrl", ["\n", "\r", "\t", "\x00"])
+def test_a_control_character_in_the_target_is_refused_not_silently_stripped(ctrl):
+    # urlsplit() strips ASCII control characters before parsing, so a header
+    # smuggled into the URL is invisible to every clause below — while the raw
+    # string is what would go on the wire. Refuse rather than sanitize: an
+    # operator whose target was quietly rewritten cannot tell what was dialled.
+    url = f"https://agent.example/chat{ctrl}Host: evil.example"
+    with pytest.raises(EngagementRefused) as exc:
+        _scope(allowed_path_prefixes=("/chat",)).check(url, resolver=_RESOLVE)
+    assert exc.value.rule is RefusalRule.URL
+
+
+def test_what_is_returned_is_what_was_checked():
+    # The value this returns is the value the transport dials. If it is not
+    # byte-identical to the representation every clause was decided on, the
+    # check is advisory.
+    from urllib.parse import urlsplit
+
+    scope = _scope(allowed_path_prefixes=("/chat",))
+    accepted = scope.check("https://agent.example/chat/v2/./", resolver=_RESOLVE)
+    parts = urlsplit(accepted)
+    assert ".." not in parts.path and "/./" not in parts.path
+    assert parts.path.startswith("/chat")
+    # A URL with nothing to normalise comes back untouched.
+    plain = "https://agent.example/chat?q=1#frag"
+    assert scope.check(plain, resolver=_RESOLVE) == plain
+
+
+# --------------------------------------------------------------------------
 # the address check — the part an allowlist alone does not give you
 # --------------------------------------------------------------------------
 

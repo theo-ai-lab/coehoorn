@@ -6,7 +6,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Runtime deps: 5](https://img.shields.io/badge/runtime%20deps-5-informational)
 ![Offline · no telemetry](https://img.shields.io/badge/offline-no%20telemetry-success)
-![Tests: 549 offline](https://img.shields.io/badge/tests-549%20offline-success)
+![Tests: 558 offline](https://img.shields.io/badge/tests-558%20offline-success)
 
 **The problem.** You're shipping a chat or tool-using agent. It passes unit tests —
 then in a real multi-turn conversation it caves under pressure, fabricates a
@@ -234,7 +234,10 @@ unless the engagement carries a written `allow_private_addresses: true`. Every
 refusal names the rule that refused it (`scope.allowed_hosts`,
 `scope.allow_private_addresses`, `engagement.authorized`, …) and exits 2, with
 the refused URL passed through the same redaction boundary as every artifact so
-a pasted credential is not echoed back into a CI log.
+a pasted credential is not echoed back into a CI log. What the check returns is
+what gets dialled — dot segments resolved, control characters refused outright
+— because a check that decides on one representation of a URL and hands the
+transport another is advisory, not a control.
 
 > **What this does and does not demonstrate — read this before quoting a
 > number.** No third-party agent has been sieged by this repository. The

@@ -34,8 +34,17 @@ All notable changes to Coehoorn are recorded here. Versions follow
   (`engagement.authorized`, `scope.allowed_hosts`,
   `scope.allow_private_addresses`, …), exits 2, and passes the refused URL
   through the redaction boundary so a pasted credential is not echoed into a CI
-  log. **Not** defended against: a DNS rebind between the check and the
-  connect, which would need an address-pinned transport.
+  log. The URL the check *returns* is the representation every clause was
+  decided on — dot segments removed — and it is what the runner dials: an
+  adversarial sweep of the first cut found two parse differentials where the
+  check decided on `urlsplit`'s view and handed the operator's raw string to
+  the transport (`/chat/../../admin` satisfied a `/chat` prefix and routes to
+  `/admin`; a URL carrying `\n` was judged in the sanitised form `urlsplit`
+  produces and dialled in the raw one). Control characters are now refused
+  rather than silently stripped, and dot segments — including percent-encoded
+  ones — are resolved before the prefix clause. **Not** defended against: a DNS
+  rebind between the check and the connect, which would need an address-pinned
+  transport.
 
   What this does and does not demonstrate is stated in the README and in the
   engagement docs: the spine is proven end to end over a real socket against

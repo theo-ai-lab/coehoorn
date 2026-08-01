@@ -46,6 +46,7 @@ import argparse
 import asyncio
 import ipaddress
 import json
+import re
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -53,7 +54,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -136,6 +137,42 @@ def _is_reserved(addr: IpAddress) -> bool:
     )
 
 
+#: ASCII control characters. ``urlsplit`` strips these before parsing (CPython's
+#: WHATWG-compatible sanitisation), which means a clause decided on the parse
+#: never sees them while the raw string still carries them.
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _remove_dot_segments(path: str) -> str | None:
+    """RFC 3986 dot-segment removal. ``None`` when the path escapes the root.
+
+    ``urlsplit`` does not do this, so ``/chat/../../admin`` satisfies a
+    ``startswith("/chat")`` prefix check while every server on earth routes it
+    to ``/admin``. Percent-encoded dots are classified too — ``%2e%2e`` is a
+    ``..`` that survived one round of decoding.
+    """
+    if not path:
+        return path
+    segments = path.split("/")
+    out: list[str] = []
+    for i, raw in enumerate(segments):
+        seg = unquote(raw) if "%" in raw else raw
+        last = i == len(segments) - 1
+        if seg == ".":
+            if last:
+                out.append("")
+            continue
+        if seg == "..":
+            if len(out) <= 1:
+                return None
+            out.pop()
+            if last:
+                out.append("")
+            continue
+        out.append(raw)
+    return "/".join(out)
+
+
 class EngagementScope(BaseModel):
     """The boundary, declared in the engagement and enforced before any dial.
 
@@ -164,17 +201,33 @@ class EngagementScope(BaseModel):
         resolver: Resolver | None = None,
         redaction: RedactionPolicy | None = None,
     ) -> str:
-        """Return ``url`` unchanged if it is in scope, else raise.
+        """Return the in-scope target URL, else raise.
 
-        Fail closed: every path out of this method is either the URL or an
+        Fail closed: every path out of this method is either a URL or an
         :class:`EngagementRefused` naming the rule. There is no third outcome
         and no "warn and continue".
+
+        The URL returned is the one every clause was decided on — dot segments
+        removed — and it is what the caller must dial. Checking one
+        representation and handing the transport another is how a scope becomes
+        advisory: ``/chat/../../admin`` satisfies a ``/chat`` prefix and reaches
+        ``/admin``. Anything that cannot be reconciled that way (a control
+        character, a path that climbs above the root) is refused rather than
+        quietly rewritten, because an operator whose target was silently
+        sanitised cannot tell what was actually dialled.
         """
         policy = redaction or RedactionPolicy.for_level(RedactionLevel.STANDARD)
 
         def refuse(rule: RefusalRule, detail: str) -> EngagementRefused:
             return EngagementRefused(rule, policy.endpoint(url), detail)
 
+        if _CONTROL_CHARS.search(url):
+            raise refuse(
+                RefusalRule.URL,
+                "target contains an ASCII control character; URL parsing strips "
+                "these before any clause sees them, so the checked URL and the "
+                "dialled URL would differ",
+            )
         try:
             parts = urlsplit(url)
         except ValueError as exc:
@@ -217,13 +270,25 @@ class EngagementScope(BaseModel):
                 f"port {effective_port} is not one of {sorted(self.allowed_ports)}",
             )
 
+        normalized_path = _remove_dot_segments(parts.path)
+        if normalized_path is None:
+            raise refuse(
+                RefusalRule.URL,
+                f"path {parts.path!r} climbs above the root; it cannot be "
+                "reconciled with any declared prefix",
+            )
         if self.allowed_path_prefixes and not any(
-            parts.path.startswith(prefix) for prefix in self.allowed_path_prefixes
+            normalized_path.startswith(prefix) for prefix in self.allowed_path_prefixes
         ):
             raise refuse(
                 RefusalRule.PATH,
-                f"path {parts.path!r} is outside "
-                f"{sorted(self.allowed_path_prefixes)}",
+                f"path {normalized_path!r} is outside "
+                f"{sorted(self.allowed_path_prefixes)}"
+                + (
+                    f" (as written: {parts.path!r})"
+                    if normalized_path != parts.path
+                    else ""
+                ),
             )
 
         resolve = resolver or system_resolver
@@ -247,7 +312,10 @@ class EngagementScope(BaseModel):
                     f"host resolves to reserved address(es) {reserved}; the "
                     "engagement does not set allow_private_addresses: true",
                 )
-        return url
+        # Hand back exactly the representation that was checked.
+        return urlunsplit(
+            (parts.scheme, parts.netloc, normalized_path, parts.query, parts.fragment)
+        )
 
 
 class EngagementTarget(BaseModel):
