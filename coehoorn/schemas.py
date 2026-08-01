@@ -28,6 +28,8 @@ from pydantic import (
     model_validator,
 )
 
+from .errors import ErrorClass
+
 
 class Archetype(StrEnum):
     """The six adversarial persona archetypes; single source of truth
@@ -101,6 +103,35 @@ class Persona(BaseModel):
     archetype: Archetype
     name: str
     description: str
+
+
+class ApproachError(BaseModel):
+    """An approach that never produced a transcript, and why.
+
+    The third outcome of an approach, alongside "the wall held" and "the wall
+    was breached": the wire failed and nothing was learned. It is a first-class
+    persisted record precisely so it cannot be quietly dropped — a Report that
+    carries one is `partial`, and a partial report says so in its header.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    persona_id: str = Field(pattern=r"^p\d{2}$")
+    archetype: Archetype
+    error_class: ErrorClass
+    message: str = Field(min_length=1)
+    status_code: int | None = Field(default=None, ge=100, le=599)
+    retry_after_seconds: float | None = Field(default=None, ge=0)
+    occurred_at: datetime
+
+    @model_validator(mode="after")
+    def _retry_after_only_when_retryable(self) -> ApproachError:
+        if self.retry_after_seconds is not None and self.error_class is not ErrorClass.RETRYABLE:
+            raise ValueError(
+                "retry_after_seconds is only meaningful on a retryable error; "
+                f"got error_class={self.error_class.value}"
+            )
+        return self
 
 
 class Criterion(BaseModel):
