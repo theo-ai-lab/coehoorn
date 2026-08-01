@@ -49,7 +49,7 @@ from .aggregator import (
     write_report_json,
 )
 from .config import headers_from_env, resolve_endpoint
-from .conversation import run_conversations
+from .conversation import run_conversations_resilient
 from .judge import judge_all
 from .meta_eval import evaluate_gold, load_gold_cases
 from .metrics import ProportionEstimate, metrics_from_comparison
@@ -137,18 +137,43 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     async with HttpAgentAdapter(
         args.agent, timeout=args.timeout, headers=agent_headers or None
     ) as agent:
-        transcripts = await run_conversations(
+        # Resilient fan-out: one 429 must cost one approach, not the run.
+        outcome = await run_conversations_resilient(
             personas, agent, max_turns=args.turns, mode=mode,
             rubric=rubric, concurrency=args.concurrency,
             probe_overrides=probe_overrides,
         )
+    transcripts, errors = outcome.transcripts, outcome.errors
     log(f"ran {len(transcripts)} conversations")
+    for e in errors:
+        retry = (
+            f" (retry after {e.retry_after_seconds:.0f}s)"
+            if e.retry_after_seconds is not None
+            else ""
+        )
+        status = f" [{e.status_code}]" if e.status_code is not None else ""
+        print(
+            f"error: approach {e.persona_id} ({e.archetype.value}) did not complete "
+            f"— {e.error_class.value}{status}{retry}: {e.message}",
+            file=sys.stderr,
+        )
+
+    if not transcripts:
+        # No transcript means no report is representable. Say so and exit
+        # non-zero rather than writing an artifact that looks like a clean run.
+        print(
+            f"error: no approach completed ({len(errors)} of {len(personas)} failed); "
+            "no report written.",
+            file=sys.stderr,
+        )
+        return 2
 
     verdicts = judge_all(transcripts, rubric, heuristic_rules, mode=mode)
     completed = datetime.now(UTC)
     report = build_report(
         rubric=rubric, transcripts=transcripts, verdicts=verdicts,
         agent_endpoint=args.agent, created_at=started, completed_at=completed,
+        errors=errors,
     )
 
     out_dir = Path(args.out)
@@ -169,16 +194,23 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     breaches = sum(1 for v in verdicts if v.outcome is VerdictOutcome.FAIL)
     held = sum(1 for v in verdicts if v.outcome is VerdictOutcome.PASS)
     abstained = sum(1 for v in verdicts if v.outcome is VerdictOutcome.ABSTAIN)
+    errors_by_class: dict[str, int] = {}
+    for e in errors:
+        errors_by_class[e.error_class.value] = errors_by_class.get(e.error_class.value, 0) + 1
 
     if args.json:
         # Stable, documented key set for `coehoorn run --json | jq`.
         print(json.dumps({
             "run_id": report.run_id,
             "mode": mode,
-            "agent_endpoint": args.agent,
+            "agent_endpoint": report.agent_endpoint,
             "personas": args.personas,
             "turns": args.turns,
             "transcripts": len(transcripts),
+            "approaches_attempted": report.approaches_attempted,
+            "partial": report.partial,
+            "errors": len(errors),
+            "errors_by_class": errors_by_class,
             "breaches": breaches,
             "held": held,
             "abstained": abstained,
@@ -194,6 +226,13 @@ async def _cmd_run(args: argparse.Namespace) -> int:
             f"\nresult: {breaches}/{len(verdicts)} approaches breached "
             f"({report.pass_rate * 100:.0f}% held, {report.abstention_rate * 100:.0f}% abstained)"
         )
+        if report.partial:
+            classes = ", ".join(f"{n} {c}" for c, n in sorted(errors_by_class.items()))
+            log(
+                f"PARTIAL: {len(errors)} of {report.approaches_attempted} approaches "
+                f"did not complete ({classes}); the rates above cover the "
+                f"{len(verdicts)} that did."
+            )
         log(f"json:  {json_path}")
         log(f"html:  {html_path}")
         for k, p in extra_paths.items():

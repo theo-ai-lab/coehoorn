@@ -19,10 +19,12 @@ output, and is independently testable. The whole thing fits in one head.
               [Persona, …]
                 │
                 ▼
-       conversation.run_conversations(...)          (asyncio.gather, bounded
-                │                                     semaphore; no framework)
+       conversation.run_conversations_resilient()   (asyncio.gather, bounded
+                │                                     semaphore; no framework.
+                │                                     Per-approach failures are
+                │                                     classified, not raised)
                 ▼
-              [Transcript, …]
+              [Transcript, …] + [ApproachError, …]
                 │
                 ▼
        judge.judge_all(...)                          (per transcript; LLM mode
@@ -57,7 +59,8 @@ output, and is independently testable. The whole thing fits in one head.
 | `rubric_parser.py` | YAML → `(Rubric, {criterion_id: HeuristicCriterionRule})`. Heuristic rules live outside `Criterion` so the schema stays pure. |
 | `personas.py` | `generate_personas_heuristic` (curated pool) and `generate_personas_llm` (Anthropic Opus). |
 | `agent_adapter.py` | `HttpAgentAdapter` and `CallableAdapter`, both implementing the `AgentCall` protocol. |
-| `conversation.py` | `run_conversations(...)` — fans out N personas with `asyncio.gather` + a bounded semaphore. Deterministic transcript ids (`t-<persona-id>`). |
+| `conversation.py` | `run_conversations_resilient(...)` — fans out N personas with `asyncio.gather` + a bounded semaphore, and accounts for every approach exactly once as a `Transcript` or a classified `ApproachError` (retryable / caller_fault / system), so one 429 costs one approach, not the run. `run_conversations(...)` is the strict variant that still raises, for the in-process sample builders. Deterministic transcript ids (`t-<persona-id>`). |
+| `errors.py` | Classifies a failed approach — `retryable` (429/503/timeout, honouring `Retry-After` in both wire forms) / `caller_fault` (401/404/400) / `system`. Stdlib + httpx; no retry policy of its own, it only names what happened. |
 | `judge.py` | `judge_transcript_heuristic` (rule-based, offline) and `judge_transcript_llm` (Sonnet, retry-once, hard-fail). Discovery semantics: any breach → `fail`; `weight`/`failure_is_critical` rank the worst moment. |
 | `aggregator.py` | `build_report`, JSON IO, `pin_report_timestamps` (for byte-stable canonical artifacts), and `compare_to_expected` (the full confusion grid, abstentions excluded). |
 | `metrics.py` | Wilson intervals, precision/recall/specificity/F1/balanced-accuracy/Cohen's κ. Stdlib only. |

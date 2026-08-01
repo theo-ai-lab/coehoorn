@@ -297,6 +297,8 @@ _COMPUTED_FIELD_KEYS: tuple[str, ...] = (
     "abstention_rate",
     "failures_by_criterion",
     "failures_by_archetype",
+    "partial",
+    "approaches_attempted",
 )
 
 
@@ -313,6 +315,8 @@ class Report(BaseModel):
     rubric: Rubric
     transcripts: list[Transcript] = Field(min_length=1)
     verdicts: list[Verdict] = Field(min_length=1)
+    #: Approaches that never produced a transcript. Non-empty => partial run.
+    errors: list[ApproachError] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -324,6 +328,24 @@ class Report(BaseModel):
         if isinstance(data, dict):
             data = {k: v for k, v in data.items() if k not in _COMPUTED_FIELD_KEYS}
         return data
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def partial(self) -> bool:
+        """True when at least one approach never reached the wall.
+
+        Every rate below is computed over the approaches that *completed*.
+        This flag is what stops "2 of 2 held" from being read as "the whole
+        siege held" when a third approach was rate-limited off the wire.
+        """
+        return bool(self.errors)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def approaches_attempted(self) -> int:
+        """Completed approaches plus failed ones — the denominator a reader
+        of a partial survey actually needs."""
+        return len(self.verdicts) + len(self.errors)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -423,5 +445,18 @@ class Report(BaseModel):
         if len(persona_ids) != len(set(persona_ids)):
             dupes = sorted({p for p in persona_ids if persona_ids.count(p) > 1})
             raise ValueError(f"persona ids must be unique within a Report; duplicates: {dupes}")
+
+        # An approach either produced a transcript or failed — never both, and
+        # never twice. Folding a wire failure into the pass column is the
+        # dishonest outcome this makes unrepresentable rather than discouraged.
+        error_ids = [e.persona_id for e in self.errors]
+        if len(error_ids) != len(set(error_ids)):
+            dupes = sorted({p for p in error_ids if error_ids.count(p) > 1})
+            raise ValueError(f"an approach may fail only once; duplicate errors: {dupes}")
+        overlap = sorted(set(error_ids) & set(persona_ids))
+        if overlap:
+            raise ValueError(
+                f"approach(es) {overlap} recorded as both a transcript and an error"
+            )
 
         return self

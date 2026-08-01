@@ -12,7 +12,7 @@ from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .schemas import CriterionStatus, Report, Rubric, Transcript, Verdict
+from .schemas import ApproachError, CriterionStatus, Report, Rubric, Transcript, Verdict
 
 
 def build_report(
@@ -24,6 +24,7 @@ def build_report(
     created_at: datetime | None = None,
     completed_at: datetime | None = None,
     run_id: str | None = None,
+    errors: Iterable[ApproachError] | None = None,
 ) -> Report:
     created = created_at or datetime.now(UTC)
     completed = completed_at or datetime.now(UTC)
@@ -38,6 +39,9 @@ def build_report(
         "rubric": rubric,
         "transcripts": list(transcripts),
         "verdicts": list(verdicts),
+        # Approaches that never reached the wall; a non-empty list makes the
+        # report partial, which every emitter is required to surface.
+        "errors": list(errors or []),
     }
     if run_id is not None:
         fields["run_id"] = run_id

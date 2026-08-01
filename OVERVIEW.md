@@ -98,9 +98,10 @@ rubric.yaml
    │  personas.generate_personas_*()
    ▼
 [Persona × N]                        ← 6 archetypes
-   │  conversation.run_conversations()  (asyncio fan-out, bounded concurrency)
+   │  conversation.run_conversations_resilient()  (asyncio fan-out, bounded)
    ▼
-[Transcript × N]                     ← turn-indexed; turns capture tool calls
+[Transcript × N] + [ApproachError × M]  ← turn-indexed; turns capture tool calls
+                                        M > 0 ⇒ the report is `partial`
    │  judge.judge_all()                 (heuristic OR LLM; one retry, no silent fallback)
    ▼
 [Verdict × N]                        ← pass / fail / abstain, each FAIL cites a turn
@@ -119,7 +120,11 @@ Report ──► report_html → the Siege Survey (.html)
    `edge_case`. Heuristic (curated pool, offline) or LLM (Anthropic Opus).
 3. **Conversations** (`conversation.py`). Fans out N conversations concurrently
    (`asyncio.gather` + a semaphore — no framework). Each run becomes a `Transcript`,
-   and each agent reply can carry the **tool calls** it made.
+   and each agent reply can carry the **tool calls** it made. An approach that fails
+   on the wire becomes a classified `ApproachError` (`retryable` / `caller_fault` /
+   `system`, honouring `Retry-After`) instead of killing the siege — the run
+   continues, the report is marked **partial**, and a lost approach is never
+   counted as a wall that held.
 4. **Judging** (`judge.py`). Scores each transcript and emits a `Verdict`. Discovery
    semantics: any criterion breach fails the transcript. The heuristic judge is offline
    and rule-based (text *and* tool-policy checks); the LLM judge (Anthropic Sonnet)
