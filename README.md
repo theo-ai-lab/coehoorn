@@ -194,8 +194,9 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 
 `.github/workflows/external-siege.yml` wires this into CI against a configured
 target (secret/variable): SARIF to the Security tab, JUnit report, and cited
-breaches posted as a PR comment — and it no-ops gracefully when no endpoint is
-set. (If your agent speaks a different wire shape, wrap `HttpAgentAdapter` or pass
+breaches posted as a PR comment. With no endpoint configured the siege job is
+**skipped, not passed**: this repo does not mint a green check for work it did
+not do. (If your agent speaks a different wire shape, wrap `HttpAgentAdapter` or pass
 any `async (conversation) -> str` callable.)
 
 **LLM mode** runs the full path end-to-end. With `ANTHROPIC_API_KEY` set,

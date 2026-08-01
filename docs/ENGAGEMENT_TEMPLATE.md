@@ -136,8 +136,11 @@ turns it into a repeatable gate:
   the configured agent, uploads the cited breaches to the **Security tab**
   (SARIF), publishes a **JUnit** test report, and posts a **PR comment**
   listing each breach with its cited turn.
-- With no `AGENT_ENDPOINT` configured (e.g. a fork PR), the workflow **no-ops
-  gracefully** — the check stays green, nothing leaks.
+- With no `AGENT_ENDPOINT` configured (e.g. a fork PR), the siege job is
+  **skipped, not passed** — the guard job resolves the config, the siege is
+  gated on its output, and nothing leaks. A green check for a siege that never
+  ran would be the same dishonest verdict this harness exists to make
+  unrepresentable.
 - To make a breach a hard gate, add `--fail-on-breach` to the run step.
 
 > The local-stub workflow (`.github/workflows/siege.yml`) stays as the offline,

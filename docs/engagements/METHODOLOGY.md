@@ -174,7 +174,7 @@ Stated up front so the rest can be taken literally:
   version and extend.
 - A library of **adversarial traces** (the breaches we found), which are exactly
   the fixtures a regression gate replays.
-- A **continuous siege** wired into your CI, no-op-safe when no endpoint is set.
+- A **continuous siege** wired into your CI; with no endpoint set the job skips rather than reporting a green no-op.
 - The **judge-calibration evidence** (meta-eval / mutation-score / CITE-MR
   outputs) so a future reviewer can re-audit the auditor.
 - Reproducibility: heuristic mode is deterministic to the byte and needs no API

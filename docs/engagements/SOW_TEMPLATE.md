@@ -161,7 +161,8 @@ The engagement is accepted when **all** hold:
    cited breach closed (or the SARIF result count reduced), re-run with the same
    rubric.
 5. The **continuous-siege CI** runs green against the configured target (and
-   no-ops cleanly when no endpoint is set) on `[CLIENT]`'s infrastructure.
+   skips — never falsely passes — when no endpoint is set) on `[CLIENT]`'s
+   infrastructure.
 6. `[CLIENT]` can **reproduce** any heuristic-mode finding byte-for-byte from the
    handed-over rubric and command.
 
