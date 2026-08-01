@@ -304,6 +304,17 @@ def _leaky(monkeypatch):
     return _LeakyAdapter
 
 
+def _report_json(tmp_path: Path) -> Path:
+    """The run's report.json — not the SARIF, which also ends in .json.
+
+    (Selecting it with a glob like ``*[!f].json`` looks clever and fails ~6% of
+    runs, whenever the run-id uuid happens to end in an "f".)
+    """
+    files = [p for p in tmp_path.glob("*.json") if not p.name.endswith(".sarif.json")]
+    assert len(files) == 1, f"expected exactly one report.json, got {files}"
+    return files[0]
+
+
 def _run_cli(tmp_path, extra: list[str]) -> int:
     return main([
         "run", "--rubric", COACH, "--agent", _LeakyAdapter.endpoint,
@@ -317,7 +328,7 @@ def test_no_emitter_leaks_the_battery(tmp_path, capsys, _leaky, emitter):
     assert _run_cli(tmp_path, []) == 0
     stdout = capsys.readouterr().out
     blob = {
-        "json": lambda: Path(glob.glob(str(tmp_path / "*[!f].json"))[0]).read_text(),
+        "json": lambda: _report_json(tmp_path).read_text(),
         "html": lambda: Path(glob.glob(str(tmp_path / "*.html"))[0]).read_text(),
         "sarif": lambda: Path(glob.glob(str(tmp_path / "*.sarif.json"))[0]).read_text(),
         "junit": lambda: Path(glob.glob(str(tmp_path / "*.junit.xml"))[0]).read_text(),
@@ -330,7 +341,7 @@ def test_the_persisted_endpoint_carries_no_credential(tmp_path, capsys, _leaky):
     assert _run_cli(tmp_path, []) == 0
     summary = json.loads(capsys.readouterr().out)
     assert "hunter2" not in summary["agent_endpoint"]
-    report = json.loads(Path(glob.glob(str(tmp_path / "*[!f].json"))[0]).read_text())
+    report = json.loads(_report_json(tmp_path).read_text())
     assert "hunter2" not in report["agent_endpoint"]
     assert "agent.example/chat" in report["agent_endpoint"]
 
@@ -340,7 +351,7 @@ def test_the_leak_matrix_measures_something(tmp_path, capsys, _leaky):
     # a redactor that silently never ran would still pass every test above.
     assert _run_cli(tmp_path, ["--redact", "off"]) == 0
     capsys.readouterr()
-    report = Path(glob.glob(str(tmp_path / "*[!f].json"))[0]).read_text()
+    report = _report_json(tmp_path).read_text()
     assert set(_has_no_secrets(report)) == set(SECRETS)
 
 
