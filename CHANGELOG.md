@@ -11,6 +11,38 @@ All notable changes to Coehoorn are recorded here. Versions follow
 > install smoke of the published wheel).
 
 ### Added
+- **Engagements (`coehoorn engage`, `coehoorn/engagement.py`, `docs/engagements/`).**
+  A URL flag is not an engagement. An engagement is a committed definition — a
+  named target, a prose rules-of-engagement document, the exact probe scripts
+  that will be sent, an explicit `authorized:` flag, and a scope allowlist
+  **enforced in code before any socket is opened**. The runner is
+  target-agnostic: it drives the existing `HttpAgentAdapter` at a URL resolved
+  from `--target` / the engagement / `AGENT_ENDPOINT`, judges with the existing
+  offline judge, redacts through the existing `RedactionPolicy`, and writes a
+  third artifact beside the report and the HTML — `<run_id>.engagement.json`,
+  carrying the scope rules applied, the redacted target, every approach that
+  never landed, and every finding cited to a turn that resolves.
+
+  The scope is an allowlist because a runner that dials an operator-supplied
+  URL is SSRF surface. Hosts match exactly (no wildcards, so a subdomain needs
+  its own line), and loopback/private/link-local/reserved/multicast/unspecified
+  addresses — including IPv4-mapped IPv6 forms of them — are refused *even when
+  the operator allowlisted the host*, unless the engagement carries a written
+  `allow_private_addresses: true`. DNS is resolved and every returned address
+  is checked, so a name that resolves inward is refused too; a resolution
+  failure is a refusal, not a shrug. Each refusal names the rule
+  (`engagement.authorized`, `scope.allowed_hosts`,
+  `scope.allow_private_addresses`, …), exits 2, and passes the refused URL
+  through the redaction boundary so a pasted credential is not echoed into a CI
+  log. **Not** defended against: a DNS rebind between the check and the
+  connect, which would need an address-pinned transport.
+
+  What this does and does not demonstrate is stated in the README and in the
+  engagement docs: the spine is proven end to end over a real socket against
+  `apps/approval-stub` (a rehearsal target this repo wrote, with a **planted,
+  documented** weakness — `uv run python scripts/rehearse_engagement.py`), and
+  the first real target is **defined, scoped and deliberately unauthorized**.
+  No third-party agent has been sieged.
 - **Redaction as a boundary (`coehoorn/redact.py`, `--redact off|standard|strict`).**
   A siege transcript is someone else's user data, and it reaches five
   persistence paths (`report.json`, the self-contained HTML, SARIF, JUnit,

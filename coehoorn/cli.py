@@ -442,6 +442,7 @@ def build_parser() -> argparse.ArgumentParser:
     # surface, registered here so build_parser() stays the single CLI assembly
     # point.
     from .distill import register_subparser as _register_distill_floor
+    from .engagement import register_subparser as _register_engage
     from .mcp_redteam import register_subparser as _register_mcp_siege
     from .metamorphic import register_subparser as _register_metamorphic
     from .mutants import register_subparser as _register_mutation_score
@@ -449,6 +450,7 @@ def build_parser() -> argparse.ArgumentParser:
     from .selective_risk import register_subparser as _register_selective_risk
     from .selfplay.cli import register_subparser as _register_self_play
 
+    _register_engage(sub)
     _register_mutation_score(sub)
     _register_metamorphic(sub)
     _register_overfit_audit(sub)

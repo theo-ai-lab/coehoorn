@@ -6,7 +6,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Runtime deps: 5](https://img.shields.io/badge/runtime%20deps-5-informational)
 ![Offline · no telemetry](https://img.shields.io/badge/offline-no%20telemetry-success)
-![Tests: 357 offline](https://img.shields.io/badge/tests-357%20offline-success)
+![Tests: 549 offline](https://img.shields.io/badge/tests-549%20offline-success)
 
 **The problem.** You're shipping a chat or tool-using agent. It passes unit tests —
 then in a real multi-turn conversation it caves under pressure, fabricates a
@@ -209,6 +209,46 @@ the wire error that quotes it. An approach that fails on the wire is reported as
 it is never counted as a wall that held. (If your agent speaks a different wire shape, wrap `HttpAgentAdapter` or pass
 any `async (conversation) -> str` callable.)
 
+**Engagements — a scoped, authorized siege, not just a URL flag.** A URL flag is
+not an engagement. `coehoorn engage` runs one *defined* in
+`docs/engagements/<name>.yaml`: a named target, a prose rules-of-engagement
+document, the exact probe scripts that will be sent, an explicit authorization
+flag, and a scope allowlist **enforced in code before any socket is opened**.
+
+```bash
+uv run python scripts/rehearse_engagement.py   # one command, no key, no network
+```
+
+That starts a local approval-surface target, conducts the engagement against it
+over a real socket, and writes three artifacts: the run report (`.json`), the
+self-contained HTML, and an engagement record (`.engagement.json`) carrying the
+scope rules that were applied and every finding cited to the transcript turn
+that proves it.
+
+The scope is an allowlist, not a denylist, because a runner that dials an
+operator-supplied URL is SSRF surface — point it at `169.254.169.254` and it
+will read a cloud instance's credentials for you. Hosts are matched exactly
+(no wildcards), and any loopback, private, link-local, reserved, multicast or
+unspecified address is refused **even when the operator allowlisted it**,
+unless the engagement carries a written `allow_private_addresses: true`. Every
+refusal names the rule that refused it (`scope.allowed_hosts`,
+`scope.allow_private_addresses`, `engagement.authorized`, …) and exits 2, with
+the refused URL passed through the same redaction boundary as every artifact so
+a pasted credential is not echoed back into a CI log.
+
+> **What this does and does not demonstrate — read this before quoting a
+> number.** No third-party agent has been sieged by this repository. The
+> engagement spine is real and tested end to end over a real socket: scope
+> gate, HTTP adapter, probes, offline judge, redaction, cited artifact. The
+> *target* in the runnable rehearsal is `apps/approval-stub`, a server this
+> repo wrote with a **planted, documented** weakness, so catching it
+> demonstrates plumbing, not prowess. The first real target is **defined,
+> scoped, and deliberately unauthorized** in
+> [`docs/engagements/farthing-approval-surface.md`](./docs/engagements/farthing-approval-surface.md)
+> — `authorized: false` makes it unrunnable until a written authorization
+> exists. What is still missing is exactly that: a live external target, a real
+> adversary, and a run whose findings nobody planted.
+
 **LLM mode** runs the full path end-to-end. With `ANTHROPIC_API_KEY` set,
 `--mode llm` drives personas and conversations on Claude (Opus) and judges with
 Sonnet. It is non-deterministic, so no LLM sample is committed; regenerate one
@@ -340,6 +380,7 @@ coehoorn/
   personas.py       # heuristic + LLM adversarial persona generators
   personas_kb.py    # the KB-poisoner persona, probes, and write-back rubric
   agent_adapter.py  # HTTP / callable adapters for the target agent
+  engagement.py     # engagement definition + scope allowlist (SSRF control) + the target-agnostic runner
   conversation.py   # async, bounded-concurrency conversation runner
   judge.py          # heuristic + LLM judges (one retry, no silent fallback)
   aggregator.py     # build Report, compare to expected, the confusion grid
@@ -354,14 +395,16 @@ coehoorn/
   mcp_redteam.py    # MCP tool-poisoning attack pack — offline loopback fixture + rug-pull / description-poisoning / cross-server-shadowing scenarios
   selfplay/         # seed-grounded attack conjecturer + SGS guide + gated self-play loop
   report_html.py    # the self-contained Siege Survey (no JS, no assets)
-  cli.py            # coehoorn run / compare / meta-eval / mutation-score / metamorphic / overfit-audit / distill-floor / selective-risk / self-play / mcp-siege
+  cli.py            # coehoorn run / engage / compare / meta-eval / mutation-score / metamorphic / overfit-audit / distill-floor / selective-risk / self-play / mcp-siege
   trace_export.py   # export a siege as Plimsoll traces (plain JSON, no dependency)
   mcp_server.py     # optional: MCP server (extra)
   inspect_export.py # optional: Inspect AI EvalLog export (extra)
 ARCHITECTURE.md     # full data-flow walkthrough + the trust boundary
 apps/stub-agent/    # deliberately-flawed local fixture (LOCAL ONLY)
+apps/approval-stub/ # rehearsal target: an approval surface with a planted, documented weakness (LOCAL ONLY)
 examples/           # sample rubric + tool-policy rubric + expected-failures fixture
 tests/gold/         # frozen, hand-labeled judge gold set
+docs/engagements/   # engagement definitions: the RoE doc + the scope YAML the runner enforces
 docs/               # RIGOR (auditing the auditor), EVAL, coverage-map, ADRs, one-page brief
 ```
 

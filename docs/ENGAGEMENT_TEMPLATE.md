@@ -10,6 +10,17 @@ The value of this document is that **every claim is checkable**: each breach
 points at a transcript turn, and the same SARIF/JUnit it cites is what the
 target team already consumes in CI.
 
+> **There is now an executable form of this document.** `coehoorn engage` runs
+> an engagement *defined* in [`engagements/`](./engagements/) — a target, a
+> rules-of-engagement doc, the exact probes, an explicit `authorized:` flag,
+> and a scope allowlist enforced in code before any socket opens. See
+> [`farthing-approval-surface.md`](./engagements/farthing-approval-surface.md)
+> (defined, deliberately unauthorized) and
+> [`local-approval-rehearsal.yaml`](./engagements/local-approval-rehearsal.yaml)
+> (the runnable rehearsal against this repo's own weakened target). Prefer that
+> pair for a new engagement; this template remains the hand-written findings
+> write-up for a siege driven by `coehoorn run`.
+
 > **This is the *findings* deliverable.** The surrounding client-facing artifacts
 > live in [`engagements/`](./engagements/): the
 > [SOW template](./engagements/SOW_TEMPLATE.md) (scope, phases, illustrative
