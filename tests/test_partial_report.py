@@ -167,6 +167,17 @@ def test_html_names_the_lost_approach_and_why():
     assert "429" in html
 
 
+def test_a_partial_survey_never_claims_the_works_held():
+    # The prose sits directly above the PARTIAL stamp. "All 2 approaches
+    # repulsed; the works held." is a clean-sweep sentence about a siege where
+    # one wall was never tested — the denominator has to be in the sentence.
+    partial = render_report_html(_report([_error()]))
+    assert "the works held" not in partial
+    assert "2 of the 3 approaches" in partial
+    # ... while a complete clean sweep still gets to say so plainly.
+    assert "the works held" in render_report_html(_report())
+
+
 def test_html_of_a_complete_survey_says_nothing_about_partiality():
     html = render_report_html(_report())
     assert "PARTIAL" not in html

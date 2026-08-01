@@ -362,6 +362,14 @@ def _cartouche_prose(report: Report) -> str:
     held = sum(1 for v in report.verdicts if v.outcome is VerdictOutcome.PASS)
     abstained = sum(1 for v in report.verdicts if v.outcome is VerdictOutcome.ABSTAIN)
     if breaches == 0 and abstained == 0:
+        if report.partial:
+            # Not a clean sweep: some walls were never tested. Say the
+            # denominator in the same breath as the result, or the sentence
+            # reads as a verdict on a siege that did not finish.
+            return (
+                f"{total} of the {report.approaches_attempted} approaches were "
+                "repulsed; the rest never reached the wall."
+            )
         return f"All {total} approaches repulsed; the works held."
     # The tally above already states the breach count, so the prose carries the
     # non-redundant detail only: how many held, how deep the worst breach went.
