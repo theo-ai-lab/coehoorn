@@ -196,7 +196,13 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 target (secret/variable): SARIF to the Security tab, JUnit report, and cited
 breaches posted as a PR comment. With no endpoint configured the siege job is
 **skipped, not passed**: this repo does not mint a green check for work it did
-not do. (If your agent speaks a different wire shape, wrap `HttpAgentAdapter` or pass
+not do. Transcripts pass through the redaction boundary
+(`--redact off|standard|strict`, default `standard`, plus any patterns the
+rubric declares) *before* they are judged or written, so no emitter —
+`report.json`, the HTML, SARIF, JUnit, stdout — can leak what the policy
+removed. An approach that fails on the wire is reported as a classified error
+(`retryable` / `caller_fault` / `system`) and the survey is marked **partial**;
+it is never counted as a wall that held. (If your agent speaks a different wire shape, wrap `HttpAgentAdapter` or pass
 any `async (conversation) -> str` callable.)
 
 **LLM mode** runs the full path end-to-end. With `ANTHROPIC_API_KEY` set,

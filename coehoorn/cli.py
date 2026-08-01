@@ -54,6 +54,7 @@ from .judge import judge_all
 from .meta_eval import evaluate_gold, load_gold_cases
 from .metrics import ProportionEstimate, metrics_from_comparison
 from .personas import generate_personas_heuristic, generate_personas_llm
+from .redact import RedactionPolicy, patterns_from_rubric_file
 from .report_html import write_report_html
 from .rubric_parser import parse_rubric_file
 from .schemas import VerdictOutcome
@@ -94,11 +95,22 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     agent_headers = headers_from_env()
 
     rubric, heuristic_rules = parse_rubric_file(args.rubric)
+    try:
+        redaction = RedactionPolicy.for_level(
+            args.redact, custom=patterns_from_rubric_file(args.rubric)
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    # Everything persisted or printed from here on uses the redacted endpoint;
+    # the adapter keeps the real one, because it has to dial it.
+    endpoint_shown = redaction.endpoint(args.agent)
     allow_llm = bool(os.environ.get("ANTHROPIC_API_KEY"))
     mode = _pick_mode(args.mode, allow_llm)
 
     log(f"mode: {mode}")
-    log(f"agent: {args.agent}")
+    log(f"agent: {endpoint_shown}")
+    log(f"redaction: {redaction.level.value} ({len(redaction.patterns)} patterns)")
     if agent_headers:
         # Confirm auth is wired without ever printing the value.
         log(f"agent auth: {', '.join(sorted(agent_headers))} header(s) from env")
@@ -143,7 +155,10 @@ async def _cmd_run(args: argparse.Namespace) -> int:
             rubric=rubric, concurrency=args.concurrency,
             probe_overrides=probe_overrides,
         )
-    transcripts, errors = outcome.transcripts, outcome.errors
+    # THE boundary: redact once, here, before anything is judged, written or
+    # printed. Every emitter downstream derives from these objects.
+    transcripts = [redaction.transcript(t) for t in outcome.transcripts]
+    errors = [redaction.approach_error(e) for e in outcome.errors]
     log(f"ran {len(transcripts)} conversations")
     for e in errors:
         retry = (
@@ -172,7 +187,7 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     completed = datetime.now(UTC)
     report = build_report(
         rubric=rubric, transcripts=transcripts, verdicts=verdicts,
-        agent_endpoint=args.agent, created_at=started, completed_at=completed,
+        agent_endpoint=endpoint_shown, created_at=started, completed_at=completed,
         errors=errors,
     )
 
@@ -207,6 +222,7 @@ async def _cmd_run(args: argparse.Namespace) -> int:
             "personas": args.personas,
             "turns": args.turns,
             "transcripts": len(transcripts),
+            "redact": redaction.level.value,
             "approaches_attempted": report.approaches_attempted,
             "partial": report.partial,
             "errors": len(errors),
@@ -376,6 +392,15 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument(
         "--fail-on-breach", action="store_true",
         help="Exit non-zero if any approach breached (opt-in gate semantics).",
+    )
+    run_p.add_argument(
+        "--redact", choices=["off", "standard", "strict"], default="standard",
+        help=(
+            "Redaction applied to every transcript BEFORE it is judged, written "
+            "or printed: off | standard (credentials, email, SSN, cards) | "
+            "strict (adds phone, IPv4, hex digests). Patterns a rubric declares "
+            "in its `redaction:` block apply at every level, including off."
+        ),
     )
     run_p.add_argument(
         "--emit", default="",

@@ -35,9 +35,14 @@ def _steps(job: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _is_guard_gated(step: dict[str, Any]) -> bool:
-    """Does this step's condition depend on another step *in the same job*?"""
+    """Is this step's work conditioned on a resolved-config output?
+
+    Both shapes produce the same lie — the job runs, does nothing, and is
+    scored success: an `if:` on a same-job step output, and an `if:` on a
+    needs.<job>.outputs.* that belongs at the job level instead.
+    """
     cond = str(step.get("if", ""))
-    return "steps." in cond and ".outputs." in cond
+    return ".outputs." in cond and ("steps." in cond or "needs." in cond)
 
 
 @pytest.mark.parametrize(

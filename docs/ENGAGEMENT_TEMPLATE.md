@@ -142,6 +142,12 @@ turns it into a repeatable gate:
   ran would be the same dishonest verdict this harness exists to make
   unrepresentable.
 - To make a breach a hard gate, add `--fail-on-breach` to the run step.
+- Transcripts are redacted **before** they are judged or written:
+  `--redact standard` (the default) removes credentials, email addresses, US
+  SSNs and card numbers; `--redact strict` adds phone numbers, IPv4 addresses
+  and hex digests; client-specific shapes go in the rubric's `redaction:`
+  block. This is what makes §9 of the SOW ("handling: redaction …") an
+  answerable question rather than a promise.
 
 > The local-stub workflow (`.github/workflows/siege.yml`) stays as the offline,
 > key-free demo; `external-siege.yml` is the real-target counterpart.

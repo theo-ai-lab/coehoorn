@@ -11,6 +11,27 @@ All notable changes to Coehoorn are recorded here. Versions follow
 > install smoke of the published wheel).
 
 ### Added
+- **Redaction as a boundary (`coehoorn/redact.py`, `--redact off|standard|strict`).**
+  A siege transcript is someone else's user data, and it reaches five
+  persistence paths (`report.json`, the self-contained HTML, SARIF, JUnit,
+  stdout). The policy is applied once, to the `Transcript`, *before* it is
+  judged or assembled — so every emitter is clean by construction rather than
+  by five separate promises. `standard` covers credentials, email, US SSNs and
+  Luhn-valid card numbers; `strict` adds phone, IPv4 and hex digests; a rubric
+  may declare its own `redaction: patterns:` block (which applies even at
+  `off`, being a stated requirement rather than a default). Credentials are
+  stripped from the `agent_endpoint` the report persists. There is deliberately
+  **no Shannon-entropy fallback**: entropy fires on base64 and JSON, which is
+  most of a tool-calling transcript. A per-emitter leak matrix and a
+  `--redact off` control test keep the boundary honest.
+- **Per-approach error outcomes (`coehoorn/errors.py`).** An approach that
+  fails on the wire is classified — `retryable` (429/503/timeout, honouring
+  `Retry-After` in both wire forms), `caller_fault` (401/404/400) or `system` —
+  and carried in the report as an `ApproachError`. A report carrying one is
+  `partial`, and says so in the HTML header, the `--json` summary and the human
+  log. A wire failure can never be folded into the pass column: the schema
+  refuses to record one approach as both a transcript and an error.
+
 - **MCP tool-poisoning attack pack (`coehoorn mcp-siege`).** A runnable,
   offline, byte-reproducible tool-poisoning fixture — three archetypes, hero
   first: **rug-pull** (a benign tool whose description mutates malicious
@@ -170,6 +191,19 @@ All notable changes to Coehoorn are recorded here. Versions follow
 - **Removed the Jinja2 dependency** — the report renders in pure Python.
 
 ### Fixed
+- **One 429 no longer destroys a whole siege.** The fan-out was a bare
+  `asyncio.gather` with the default `return_exceptions=False`, so a single
+  rate-limited approach re-raised and discarded every conversation that had
+  already completed — a run that died at approach 5 of 6 wrote no report at
+  all. `coehoorn run` now uses a resilient fan-out; a run where *every*
+  approach fails writes no report and exits 2 instead of raising a traceback.
+- **The external-siege workflow no longer mints a green check for a siege it
+  did not run.** The guard was the first step of the siege job and every real
+  step carried `if: steps.guard.outputs.configured`, which GitHub scores
+  **success**: 17 of 17 scheduled runs concluded green having executed nothing.
+  The guard is now its own job and the siege is gated at the job level, so an
+  unconfigured siege is **skipped**. A test pins the shape for every workflow
+  in the repo.
 - The MCP rubric ships inside the package (`coehoorn/data/rubric_mcp.yaml`),
   so an installed `coehoorn mcp-siege` works with no repository checkout —
   it previously loaded from the repo's `examples/` tree, which a wheel
