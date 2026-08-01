@@ -196,11 +196,15 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 target (secret/variable): SARIF to the Security tab, JUnit report, and cited
 breaches posted as a PR comment. With no endpoint configured the siege job is
 **skipped, not passed**: this repo does not mint a green check for work it did
-not do. Transcripts pass through the redaction boundary
-(`--redact off|standard|strict`, default `standard`, plus any patterns the
-rubric declares) *before* they are judged or written, so no emitter —
-`report.json`, the HTML, SARIF, JUnit, stdout — can leak what the policy
-removed. An approach that fails on the wire is reported as a classified error
+not do. Every persisted string — transcripts, the `agent_endpoint`, and the
+error messages of approaches that never completed — passes through one
+redaction boundary (`--redact off|standard|strict`, default `standard`, plus
+any patterns the rubric declares) *before* it is judged or written, so no
+emitter — `report.json`, the HTML, SARIF, JUnit, stdout, stderr — can leak what
+the policy removed. That includes URL credentials: a target reached as
+`https://user:pass@host/chat?api_key=…` is recorded with the host and path
+intact and the credential replaced, wherever the URL appears — including inside
+the wire error that quotes it. An approach that fails on the wire is reported as a classified error
 (`retryable` / `caller_fault` / `system`) and the survey is marked **partial**;
 it is never counted as a wall that held. (If your agent speaks a different wire shape, wrap `HttpAgentAdapter` or pass
 any `async (conversation) -> str` callable.)

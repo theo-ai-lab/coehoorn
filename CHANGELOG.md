@@ -19,15 +19,22 @@ All notable changes to Coehoorn are recorded here. Versions follow
   by five separate promises. `standard` covers credentials, email, US SSNs and
   Luhn-valid card numbers; `strict` adds phone, IPv4 and hex digests; a rubric
   may declare its own `redaction: patterns:` block (which applies even at
-  `off`, being a stated requirement rather than a default). Credentials are
-  stripped from the `agent_endpoint` the report persists. There is deliberately
+  `off`, being a stated requirement rather than a default). URL credentials —
+  `user:pass@host` userinfo and credential-bearing query parameters — are
+  stripped by the same `text` rule every persisted string goes through, so the
+  `agent_endpoint`, a transcript quoting a URL, and the wire error that quotes
+  the request URL are all cleaned identically; the host and path survive,
+  because which agent was besieged is the record. There is deliberately
   **no Shannon-entropy fallback**: entropy fires on base64 and JSON, which is
   most of a tool-calling transcript. A per-emitter leak matrix and a
   `--redact off` control test keep the boundary honest.
 - **Per-approach error outcomes (`coehoorn/errors.py`).** An approach that
   fails on the wire is classified — `retryable` (429/503/timeout, honouring
   `Retry-After` in both wire forms), `caller_fault` (401/404/400) or `system` —
-  and carried in the report as an `ApproachError`. A report carrying one is
+  and carried in the report as an `ApproachError`. `Retry-After` is recorded
+  only on `retryable`: targets do send it on a 403 (GitHub's secondary rate
+  limit, Cloudflare), but "come back in 60s" is false advice for a wrong
+  credential, and the record refuses the pair outright. A report carrying one is
   `partial`, and says so in the HTML header, the `--json` summary and the human
   log. A wire failure can never be folded into the pass column: the schema
   refuses to record one approach as both a transcript and an error.

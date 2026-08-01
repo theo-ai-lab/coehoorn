@@ -51,6 +51,82 @@ _SECRET_QUERY_KEYS = frozenset(
     {"api_key", "apikey", "key", "token", "access_token", "auth", "secret", "signature", "sig"}
 )
 
+#: A URL with an authority, as it appears *inside* text. An httpx error message
+#: is prose with a URL in it ("Client error '401 Unauthorized' for url '...'"),
+#: and so is any transcript turn that quotes one. Only whitespace, quotes and
+#: angle brackets terminate a span: brackets cannot, because ``[::1]`` is a
+#: legal host and excluding ``]`` would let every IPv6 target keep its
+#: credential. Sentence punctuation is trimmed afterwards instead.
+_URL_IN_TEXT = re.compile(r"\b[a-zA-Z][a-zA-Z0-9+.-]*://[^\s\"'<>]+")
+
+_CLOSERS = {")": "(", "]": "[", "}": "{"}
+
+
+def _trim_trailing_punctuation(span: str) -> tuple[str, str]:
+    """Split a matched span into the URL and the sentence punctuation after it.
+
+    ``.,;:!?`` never end a URL anyone meant to write. A closing bracket is
+    ambiguous — it belongs to the URL when the URL opened it (``[::1]``,
+    ``?ids[]=1``) and to the prose when it did not (``(see http://x)``) — so it
+    is decided by counting, not by guessing.
+    """
+    end = len(span)
+    while end:
+        ch = span[end - 1]
+        if ch in ".,;:!?":
+            end -= 1
+            continue
+        if ch in _CLOSERS and span.count(_CLOSERS[ch], 0, end) < span.count(ch, 0, end):
+            end -= 1
+            continue
+        break
+    return span[:end], span[end:]
+
+
+def _strip_url_credentials(url: str) -> str:
+    """Remove userinfo and credential query values from one URL.
+
+    Two shapes carry them: userinfo (``https://user:pass@host/``) and
+    credential-bearing query parameters (``?api_key=...``). The scheme, host,
+    port and path survive — which agent was besieged, or which service a
+    transcript names, is the point of the record.
+
+    A URL carrying neither is returned *byte for byte*, not round-tripped
+    through urlunsplit. This runs over every transcript now, and a URL is
+    evidence a report may need to cite; re-encoding one that held no secret
+    would rewrite the record for nothing.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+    if not parts.scheme or not parts.netloc:
+        return url
+    has_userinfo = "@" in parts.netloc
+    pairs = parse_qsl(parts.query, keep_blank_values=True) if parts.query else []
+    has_secret_param = any(k.lower() in _SECRET_QUERY_KEYS for k, _ in pairs)
+    if not has_userinfo and not has_secret_param:
+        return url
+
+    netloc = parts.netloc
+    if has_userinfo:
+        netloc = f"[redacted:credential]@{netloc.rsplit('@', 1)[1]}"
+    query = parts.query
+    if has_secret_param:
+        query = urlencode(
+            [(k, "[redacted]" if k.lower() in _SECRET_QUERY_KEYS else v) for k, v in pairs],
+            # Keep the placeholder legible: a header that reads
+            # "api_key=%5Bredacted%5D" makes a reader decode a plain fact.
+            quote_via=quote,
+            safe="[]",
+        )
+    return urlunsplit((parts.scheme, netloc, parts.path, query, parts.fragment))
+
+
+def _redact_url_span(match: re.Match[str]) -> str:
+    url, trailing = _trim_trailing_punctuation(match.group(0))
+    return _strip_url_credentials(url) + trailing
+
 
 class RedactionLevel(StrEnum):
     OFF = "off"
@@ -177,6 +253,13 @@ class RedactionPolicy:
         if not self.patterns and self.level is not RedactionLevel.STANDARD:
             return value
         out = value
+        if self.level is not RedactionLevel.OFF:
+            # URLs first, for two reasons. A credential in userinfo or a query
+            # parameter is *structural* — it has no shape the pattern pack can
+            # recognise. And `user:pass@host.tld` is email-shaped, so running
+            # the pack first would rewrite it to "[redacted:email]" and give
+            # the false impression the URL rule had done its job.
+            out = _URL_IN_TEXT.sub(_redact_url_span, out)
         for pattern in self.patterns:
             out = pattern.apply(out)
         if self.level is not RedactionLevel.OFF:
@@ -220,38 +303,17 @@ class RedactionPolicy:
         return error.model_copy(update={"message": self.text(error.message)})
 
     def endpoint(self, url: str) -> str:
-        """Strip credentials from the target URL the Report persists verbatim.
+        """The target URL the Report persists verbatim.
 
-        Two shapes carry them: userinfo (``https://user:pass@host/``) and
-        credential-bearing query parameters (``?api_key=...``). The host and
-        path survive — which agent was besieged is the point of the record.
+        Nothing special happens here, and that is the fix: URL credentials are
+        stripped by :meth:`text`, which every persisted string already goes
+        through. When this method owned the URL rule privately, the header
+        field was redacted correctly while an ApproachError quoting the very
+        same URL — and rendered two lines below it in the client-facing HTML —
+        printed the password in full. One rule, one boundary, or an emitter
+        will eventually be handed a URL that never met the policy.
         """
-        if self.level is RedactionLevel.OFF:
-            return url
-        try:
-            parts = urlsplit(url)
-        except ValueError:
-            return self.text(url)
-        if not parts.scheme or not parts.netloc:
-            return self.text(url)
-
-        netloc = parts.netloc
-        if "@" in netloc:
-            netloc = f"[redacted:credential]@{netloc.rsplit('@', 1)[1]}"
-        query = parts.query
-        if query:
-            pairs = parse_qsl(query, keep_blank_values=True)
-            query = urlencode(
-                [
-                    (k, "[redacted]" if k.lower() in _SECRET_QUERY_KEYS else self.text(v))
-                    for k, v in pairs
-                ],
-                # Keep the placeholder legible: a header that reads
-                # "api_key=%5Bredacted%5D" makes a reader decode a plain fact.
-                quote_via=quote,
-                safe="[]",
-            )
-        return self.text(urlunsplit((parts.scheme, netloc, parts.path, query, parts.fragment)))
+        return self.text(url)
 
 
 def patterns_from_rubric_file(path: str | Path) -> list[RedactionPattern]:
