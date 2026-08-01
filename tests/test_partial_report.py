@@ -261,6 +261,29 @@ def test_cli_run_reports_a_caller_fault_class(tmp_path, capsys, _stub_adapter):
     assert summary["errors_by_class"] == {"caller_fault": 1}
 
 
+def test_cli_run_survives_a_403_that_carries_retry_after(tmp_path, capsys, _stub_adapter):
+    # A 403 + Retry-After (GitHub secondary rate limit) used to raise a
+    # ValidationError out of the resilient runner and straight through
+    # _cmd_run: traceback, no report, five good conversations gone.
+    _FailOnOneAdapter.status = 403
+    _FailOnOneAdapter.headers = {"Retry-After": "60"}
+    rc = main([
+        "run", "--rubric", COACH, "--agent", "http://stub",
+        "--personas", "6", "--turns", "2", "--out", str(tmp_path), "--json",
+    ])
+    assert rc == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary["partial"] is True
+    assert summary["transcripts"] == 5
+    assert summary["errors_by_class"] == {"caller_fault": 1}
+
+    report = json.loads(Path(glob.glob(str(tmp_path / "*.json"))[0]).read_text())
+    assert report["errors"][0]["status_code"] == 403
+    # Retrying a 403 will not help, so the report must not advise it — the
+    # header is dropped, not smuggled into a field the schema rejects.
+    assert report["errors"][0]["retry_after_seconds"] is None
+
+
 def test_cli_run_exits_clean_when_every_approach_fails(tmp_path, capsys, _stub_adapter):
     _FailOnOneAdapter.fail_all = True
     rc = main([

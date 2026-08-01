@@ -8,6 +8,8 @@ ends as either a transcript or a *classified* error, never as silence.
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 
@@ -15,7 +17,7 @@ from coehoorn.agent_adapter import CallableAdapter
 from coehoorn.conversation import run_conversations, run_conversations_resilient
 from coehoorn.errors import ErrorClass, classify_error
 from coehoorn.personas import generate_personas_heuristic
-from coehoorn.schemas import Archetype, Persona
+from coehoorn.schemas import ApproachError, Archetype, Persona
 
 # The first probe of each archetype — the message that identifies which
 # approach is talking to the stub target.
@@ -50,11 +52,52 @@ def test_transient_status_codes_are_retryable(code):
     assert retry_after is None
 
 
+# Every arm carries the header too. The original battery passed no headers and
+# threw the third tuple element away, which is exactly why a 403 that carries
+# `Retry-After` — GitHub's secondary rate limit, Cloudflare — walked straight
+# past it and killed the run at ApproachError construction time.
+@pytest.mark.parametrize("headers", [{}, {"Retry-After": "60"}], ids=["bare", "retry-after"])
 @pytest.mark.parametrize("code", [400, 401, 403, 404, 422])
-def test_client_status_codes_are_caller_fault(code):
-    cls, status, _ = classify_error(_status_error(code))
+def test_client_status_codes_are_caller_fault(code, headers):
+    cls, status, retry_after = classify_error(_status_error(code, headers))
     assert cls is ErrorClass.CALLER_FAULT
     assert status == code
+    # A Retry-After on a non-retryable class is not merely useless advice, it
+    # is *unrepresentable*: ApproachError refuses the combination outright. The
+    # classifier is the single place that knows the class, so it is the place
+    # that must drop the header — not the record that has to reject it.
+    assert retry_after is None
+
+
+@pytest.mark.parametrize("code", [100, 302, 399])
+def test_non_error_status_codes_are_system_and_carry_no_retry_after(code):
+    cls, status, retry_after = classify_error(_status_error(code, {"Retry-After": "60"}))
+    assert cls is ErrorClass.SYSTEM
+    assert status == code
+    assert retry_after is None
+
+
+@pytest.mark.parametrize(
+    "code", [100, 302, 399, 400, 401, 403, 404, 408, 422, 425, 429, 500, 502, 503, 504]
+)
+def test_every_classification_is_representable_as_an_approach_error(code):
+    """The classifier and the record must agree, or the runner dies.
+
+    ``run_conversations_resilient`` builds the ApproachError *outside* the
+    isolated task, so a classifier tuple the schema refuses does not degrade
+    one approach — it raises a pydantic ValidationError out of the whole run.
+    This is the contract lock: whatever the wire says, the tuple is buildable.
+    """
+    cls, status, retry_after = classify_error(_status_error(code, {"Retry-After": "60"}))
+    ApproachError(
+        persona_id="p00",
+        archetype=Archetype.INJECTOR,
+        error_class=cls,
+        message=f"{code}",
+        status_code=status,
+        retry_after_seconds=retry_after,
+        occurred_at=datetime.now(UTC),
+    )
 
 
 def test_retry_after_seconds_is_honoured():
@@ -113,6 +156,31 @@ async def test_one_rate_limited_approach_does_not_kill_the_siege():
     assert err.retry_after_seconds == 30.0
     # The failed approach never appears as a completed one.
     assert err.persona_id not in {t.persona.id for t in outcome.transcripts}
+
+
+@pytest.mark.asyncio
+async def test_a_403_carrying_retry_after_does_not_kill_the_siege():
+    """The textbook shape the first cut of this runner still died on.
+
+    GitHub's secondary rate limit and Cloudflare both answer 403 *with* a
+    ``Retry-After``. The status says caller_fault, the header says retryable,
+    and the record forbids the pair — so the resilient runner raised a pydantic
+    ValidationError out of its own result loop and lost the five healthy
+    conversations, which is precisely the failure it exists to prevent.
+    """
+    personas = generate_personas_heuristic(n=6)
+    agent = _agent_that_fails_on(INJECTOR_OPENER, _status_error(403, {"Retry-After": "60"}))
+
+    outcome = await run_conversations_resilient(
+        personas, agent, max_turns=2, mode="heuristic", concurrency=6
+    )
+
+    assert len(outcome.transcripts) == 5
+    assert len(outcome.errors) == 1
+    err = outcome.errors[0]
+    assert err.error_class is ErrorClass.CALLER_FAULT
+    assert err.status_code == 403
+    assert err.retry_after_seconds is None
 
 
 @pytest.mark.asyncio

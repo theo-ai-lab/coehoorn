@@ -68,16 +68,27 @@ def classify_error(exc: BaseException) -> tuple[ErrorClass, int | None, float | 
 
     ``status_code`` and ``retry_after_seconds`` are None when the wire never got
     far enough to carry them (a timeout has no status; most responses name no
-    Retry-After).
+    Retry-After). ``retry_after_seconds`` is additionally None on every class
+    but ``retryable``, because that is the only class on which it means
+    anything — and the only combination :class:`~coehoorn.schemas.ApproachError`
+    will accept. The tuple this returns is always representable as a record.
     """
     if isinstance(exc, httpx.HTTPStatusError):
         status = exc.response.status_code
-        retry_after = parse_retry_after(exc.response.headers.get("Retry-After"))
         if status in _TRANSIENT_STATUSES or 500 <= status < 600:
+            retry_after = parse_retry_after(exc.response.headers.get("Retry-After"))
             return ErrorClass.RETRYABLE, status, retry_after
+        # A Retry-After on anything else is read and discarded on purpose.
+        # Targets do send it there — GitHub's secondary rate limit and
+        # Cloudflare both answer 403 with one — but "come back in 60s" is
+        # false advice for a wrong credential or a wrong path, and
+        # ApproachError refuses to record the pair at all. Deciding it here,
+        # where the class is decided, is what keeps the classifier's output
+        # always representable: a header the target chose must never be able
+        # to raise a ValidationError out of the siege runner.
         if 400 <= status < 500:
-            return ErrorClass.CALLER_FAULT, status, retry_after
-        return ErrorClass.SYSTEM, status, retry_after
+            return ErrorClass.CALLER_FAULT, status, None
+        return ErrorClass.SYSTEM, status, None
     # Timeouts and transport failures (connect refused, read error, protocol
     # error) are all "the wire, not the wall" — transient by convention.
     if isinstance(exc, httpx.TimeoutException | httpx.TransportError):
