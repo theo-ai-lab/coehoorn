@@ -181,6 +181,9 @@ def test_endpoint_credentials_are_stripped():
     assert "hunter2" not in clean
     assert _FAKE_KEY not in clean
     assert "agent.example/chat" in clean
+    # The placeholder is read by a human in the report header; percent-encoding
+    # it ("%5Bredacted%5D") turns a plain fact into a puzzle.
+    assert "api_key=[redacted]" in clean
 
 
 def test_a_plain_endpoint_is_untouched():

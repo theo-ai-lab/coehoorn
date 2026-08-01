@@ -40,7 +40,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 import yaml
 
@@ -245,7 +245,11 @@ class RedactionPolicy:
                 [
                     (k, "[redacted]" if k.lower() in _SECRET_QUERY_KEYS else self.text(v))
                     for k, v in pairs
-                ]
+                ],
+                # Keep the placeholder legible: a header that reads
+                # "api_key=%5Bredacted%5D" makes a reader decode a plain fact.
+                quote_via=quote,
+                safe="[]",
             )
         return self.text(urlunsplit((parts.scheme, netloc, parts.path, query, parts.fragment)))
 
