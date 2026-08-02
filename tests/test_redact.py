@@ -57,7 +57,7 @@ OFF = RedactionPolicy.for_level("off")
 SECRETS = {
     "email": "dana.whitfield@northgate-health.example",
     "api_key": _FAKE_KEY,
-    "gh_token": "ghp_9zQmRt4LwXcV2bN7pKdE3sYhU5aJ1fG8oI0q",
+    "gh_token": "ghp_EXAMPLEONLYEXAMPLEONLYEXAMPLEONLY01",
     "aws_key": "AKIAIOSFODNN7EXAMPLE",
     "jwt": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NSJ9.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1g",
     "ssn": "078-05-1120",
