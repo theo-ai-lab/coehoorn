@@ -105,6 +105,12 @@ class _PinnedAddressTransport(httpx.AsyncBaseTransport):
 
     The name still identifies the site — virtual hosts and certificate
     validation both need it — but it no longer decides where the socket goes.
+
+    TLS is not weakened by the swap: httpcore reads the ``sni_hostname``
+    extension and passes it as ``server_hostname`` into the TLS layer
+    (``httpcore/connection.py``), so the certificate is verified against the
+    agreed NAME rather than against the IP literal being dialled. Checked
+    against httpcore as vendored by httpx 0.28.1, not assumed.
     """
 
     def __init__(self, address: IpAddress, inner: httpx.AsyncBaseTransport) -> None:
