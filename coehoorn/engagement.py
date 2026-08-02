@@ -35,10 +35,25 @@ engagement carries a written opt-in (which is how a localhost rehearsal is
 expressed). Every refusal names the rule that refused, because "it errored"
 tells an operator nothing about whether to amend the agreement or stop typing.
 
-Residual risk, stated rather than papered over: the address check resolves at
-check time and httpx resolves again at connect time, so a DNS rebind between
-the two is not defended against here. Closing it means a pinned-address
-transport; that is not in this slice.
+Why the approved ADDRESS is dialled, not the name
+-------------------------------------------------
+A hostname is a question asked of DNS, and asking it twice can get two answers.
+Checking the addresses a name resolves to and then handing the transport that
+same name means the transport resolves again, and a record that changes in
+between — a DNS rebind, the classic SSRF bypass — is approved on one address and
+dialled on another. :meth:`EngagementScope.check` already names this failure in
+its own docstring one layer up: checking one representation and handing the
+transport another is how a scope becomes advisory.
+
+So :meth:`EngagementScope.check_pinned` returns the addresses it approved, and
+:func:`pinned_transport` dials one of them, keeping the name only for the
+``Host`` header and TLS SNI. The name still says which site is meant; it no
+longer decides where the socket goes.
+
+Residual risk, stated rather than papered over: the pin is per-engagement-run,
+so a target that legitimately moves address mid-run fails rather than following;
+and redirects are not followed (httpx default), which is what keeps a 302 from
+being a scope escape. Both are deliberate.
 """
 from __future__ import annotations
 
@@ -56,6 +71,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+import httpx
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -69,6 +85,59 @@ IpAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 Resolver = Callable[[str], "tuple[IpAddress, ...]"]
 
 _DEFAULT_PORTS: dict[str, int] = {"http": 80, "https": 443}
+
+
+@dataclass(frozen=True)
+class CheckedTarget:
+    """A URL that passed scope, and the addresses it passed *on*.
+
+    Carrying the addresses is the whole point. A hostname is a question asked of
+    DNS, and asking it twice can get two answers; an address is an answer already
+    given. :func:`pinned_transport` turns the second one into the connection.
+    """
+
+    url: str
+    addresses: tuple[IpAddress, ...]
+
+
+class _PinnedAddressTransport(httpx.AsyncBaseTransport):
+    """Send every request to one fixed address, keeping the name for Host/SNI.
+
+    The name still identifies the site — virtual hosts and certificate
+    validation both need it — but it no longer decides where the socket goes.
+    """
+
+    def __init__(self, address: IpAddress, inner: httpx.AsyncBaseTransport) -> None:
+        self._address = address
+        self._inner = inner
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        name = request.url.host
+        pinned = httpx.Request(
+            method=request.method,
+            url=request.url.copy_with(host=str(self._address)),
+            headers=request.headers,
+            stream=request.stream,
+            extensions={**request.extensions, "sni_hostname": name},
+        )
+        # copy_with rewrites the URL, and httpx would derive Host from it. The
+        # agreed target is the name, so say the name.
+        pinned.headers["Host"] = name
+        return await self._inner.handle_async_request(pinned)
+
+    async def aclose(self) -> None:
+        await self._inner.aclose()
+
+
+def pinned_transport(
+    address: IpAddress, *, inner: httpx.AsyncBaseTransport | None = None
+) -> httpx.AsyncBaseTransport:
+    """An httpx transport that dials ``address`` and never re-resolves the name.
+
+    Pass the address from :attr:`CheckedTarget.addresses`; that is what closes
+    the gap between the scope decision and the socket.
+    """
+    return _PinnedAddressTransport(address, inner or httpx.AsyncHTTPTransport())
 
 
 class RefusalRule(StrEnum):
@@ -194,14 +263,19 @@ class EngagementScope(BaseModel):
     #: how a localhost rehearsal is expressed — and the only way one is.
     allow_private_addresses: bool = False
 
-    def check(
+    def check_pinned(
         self,
         url: str,
         *,
         resolver: Resolver | None = None,
         redaction: RedactionPolicy | None = None,
-    ) -> str:
-        """Return the in-scope target URL, else raise.
+    ) -> CheckedTarget:
+        """Return the in-scope target URL **and the addresses it was approved on**.
+
+        Prefer this over :meth:`check`. The addresses are what make the decision
+        binding: dial one of them with :func:`pinned_transport` and the name is
+        never resolved a second time, so a record that changes after the check
+        cannot move the connection.
 
         Fail closed: every path out of this method is either a URL or an
         :class:`EngagementRefused` naming the rule. There is no third outcome
@@ -312,10 +386,29 @@ class EngagementScope(BaseModel):
                     f"host resolves to reserved address(es) {reserved}; the "
                     "engagement does not set allow_private_addresses: true",
                 )
-        # Hand back exactly the representation that was checked.
-        return urlunsplit(
-            (parts.scheme, parts.netloc, normalized_path, parts.query, parts.fragment)
+        # Hand back exactly the representation that was checked, together with
+        # the addresses it was checked against.
+        return CheckedTarget(
+            url=urlunsplit(
+                (parts.scheme, parts.netloc, normalized_path, parts.query, parts.fragment)
+            ),
+            addresses=addresses,
         )
+
+    def check(
+        self,
+        url: str,
+        *,
+        resolver: Resolver | None = None,
+        redaction: RedactionPolicy | None = None,
+    ) -> str:
+        """Return the in-scope target URL, else raise.
+
+        Kept for callers that only need the string. It discards the approved
+        addresses, so the caller re-resolves at connect time and the rebind gap
+        is open again; :meth:`check_pinned` is the one to reach for.
+        """
+        return self.check_pinned(url, resolver=resolver, redaction=redaction).url
 
 
 class EngagementTarget(BaseModel):
@@ -395,7 +488,9 @@ class Engagement(BaseModel):
         return RedactionPolicy.for_level(level)
 
     # -- the gate --------------------------------------------------------
-    def check_target(self, url: str, *, resolver: Resolver | None = None) -> str:
+    def check_target_pinned(
+        self, url: str, *, resolver: Resolver | None = None
+    ) -> CheckedTarget:
         """Authorization first, then scope. Both fail closed, both name a rule."""
         policy = self._refusal_policy()
         if not self.authorized:
@@ -406,7 +501,11 @@ class Engagement(BaseModel):
                 f"authorization is on file, so no target may be dialled. See "
                 f"{self.rules_of_engagement}.",
             )
-        return self.scope.check(url, resolver=resolver, redaction=policy)
+        return self.scope.check_pinned(url, resolver=resolver, redaction=policy)
+
+    def check_target(self, url: str, *, resolver: Resolver | None = None) -> str:
+        """The URL only. See :meth:`EngagementScope.check` on why to prefer pinned."""
+        return self.check_target_pinned(url, resolver=resolver).url
 
 
 def load_engagement(path: str | Path) -> Engagement:
@@ -510,7 +609,13 @@ async def run_engagement(
             "set target.endpoint in the engagement, or set AGENT_ENDPOINT.",
         )
     # THE gate. Nothing below this line runs for an out-of-scope target.
-    url = engagement.check_target(url, resolver=resolver)
+    checked = engagement.check_target_pinned(url, resolver=resolver)
+    url = checked.url
+    # Every surviving address is non-reserved (the check refuses the whole host
+    # if any answer is reserved), so any of them is in scope; take the first for
+    # a deterministic dial. Pinning it is what stops the name being re-resolved
+    # into somewhere the engagement never authorized.
+    dial_transport = pinned_transport(checked.addresses[0])
 
     rubric_path = engagement.rubric_path()
     rubric, heuristic_rules = parse_rubric_file(rubric_path)
@@ -526,7 +631,10 @@ async def run_engagement(
 
     started = datetime.now(UTC)
     async with HttpAgentAdapter(
-        url, timeout=timeout, headers=headers_from_env(env) or None
+        url,
+        timeout=timeout,
+        headers=headers_from_env(env) or None,
+        transport=dial_transport,
     ) as agent:
         outcome = await run_conversations_resilient(
             personas,
