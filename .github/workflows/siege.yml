@@ -59,8 +59,14 @@ jobs:
           fi
           echo "path=$f" >> "$GITHUB_OUTPUT"
 
+      # Deliberately NOT guarded on steps.sarif.outputs.path: a step skipped by
+      # its own job's step output still leaves the job green, which is how an
+      # upload that never happened reads as one that did.
+      # tests/test_external_siege_workflow.py enforces that. The locate step
+      # above is the gate -- it exits non-zero when there is no SARIF, so this
+      # step is only ever reached with a real path.
       - name: Upload breaches to the Security tab (SARIF)
-        if: always() && steps.sarif.outputs.path != ''
+        if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: ${{ steps.sarif.outputs.path }}
