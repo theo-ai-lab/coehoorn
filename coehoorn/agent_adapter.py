@@ -69,8 +69,15 @@ class HttpAgentAdapter:
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
+            # trust_env=False: httpx otherwise reads HTTP_PROXY/HTTPS_PROXY/
+            # ALL_PROXY and mounts a proxy transport, which would carry every
+            # request to a host the engagement never authorized — defeating the
+            # allowlist and the reserved-address refusal at once, with no access
+            # to the engagement file, just an environment variable. An operator
+            # who genuinely needs a proxy declares it by injecting a client or a
+            # transport, which is the same fail-closed shape as the allowlist.
             self._client = httpx.AsyncClient(
-                timeout=self.timeout, transport=self._transport
+                timeout=self.timeout, transport=self._transport, trust_env=False
             )
         return self._client
 

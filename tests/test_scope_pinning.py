@@ -146,6 +146,39 @@ class TestAdapterCanBeGivenThePinnedTransport:
         assert adapter._client is None
 
 
+class TestEnvironmentCannotRerouteAnApprovedTarget:
+    """A proxy variable in the environment must not move the socket.
+
+    httpx trusts the environment by default: with ``HTTP_PROXY`` or ``ALL_PROXY``
+    set, ``httpx.AsyncClient(timeout=...)`` mounts a proxy transport and every
+    request goes there instead of to the host that passed scope. That defeats the
+    allowlist and the reserved-address refusal at once, and it needs no access to
+    the engagement file — only an environment variable.
+
+    Found by an adversarial review, then confirmed against httpx 0.28.1.
+    """
+
+    @pytest.mark.asyncio
+    async def test_http_proxy_in_the_environment_is_not_honoured(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from coehoorn.agent_adapter import HttpAgentAdapter
+
+        monkeypatch.setenv("HTTP_PROXY", "http://169.254.169.254:3128")
+        monkeypatch.setenv("HTTPS_PROXY", "http://169.254.169.254:3128")
+        monkeypatch.setenv("ALL_PROXY", "http://169.254.169.254:3128")
+
+        adapter = HttpAgentAdapter("http://agent.example.com/chat")
+        client = adapter._get_client()
+        try:
+            assert client._mounts == {}, (
+                "a proxy from the environment would carry every request to a host "
+                "the engagement never authorized"
+            )
+        finally:
+            await adapter.aclose()
+
+
 class TestRebindCannotMoveTheTarget:
     @pytest.mark.asyncio
     async def test_a_record_that_flips_to_metadata_after_the_check_is_not_dialled(
