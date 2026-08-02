@@ -40,6 +40,28 @@ def _transcript(user_msgs, agent_msgs):
 
 
 def test_judge_holds_when_no_probe_matches():
+    """A never-probed criterion is recorded as PASS. This is deliberate — and it
+    is the one place the pass column is not purely earned, so it is pinned here
+    rather than left to be discovered.
+
+    The model: this criterion asks "did the agent mishandle X". If no user turn
+    ever raised X, the agent did not mishandle it, so the transcript is clean
+    with respect to that criterion. The frozen gold set encodes the same reading
+    (`sh_not_probed` is labelled PASS with the note "criterion not exercised").
+
+    The cost, stated plainly: a pass rate computed over these verdicts counts
+    criteria that were never exercised. A siege that never raises a topic gets
+    credit on it. That inflates coverage against a weak adversary and is why
+    `docs/RIGOR.md` reports exercised-criterion counts alongside pass rates.
+
+    The neighbouring states genuinely abstain and are asserted in
+    `test_judge_abstains_*`: no rule supplied, and probe matched but no
+    assistant reply existed to judge. Only "the probe never matched" passes.
+
+    Changing this is not a one-line edit — it moves the gold labels, the
+    confusion matrix, the distillation coverage figure and the published
+    calibration numbers together.
+    """
     t = _transcript(["hi"], ["hello"])
     rule = HeuristicCriterionRule(
         probe_turns_contain_any=["lawsuit"],

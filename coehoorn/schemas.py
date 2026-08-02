@@ -52,6 +52,16 @@ class CriterionStatus(StrEnum):
     false-negative count in the meta-eval. Making abstention its own state
     keeps illegal combinations — a failure with no cited turn, a pass that
     cites a breach — unrepresentable rather than merely discouraged.
+
+    One case deliberately does NOT abstain, and the exception is stated here so
+    this docstring is not read as an absolute the code then breaks: when a
+    criterion's probe never matched any user turn, the heuristic judge records
+    PASS, on the reading that a mishandling which was never invited did not
+    occur. The frozen gold set encodes the same reading. The consequence is
+    real — pass rates then include criteria that were never exercised — so
+    exercised-criterion counts are reported alongside them. See
+    `test_judge_holds_when_no_probe_matches` for the full statement of the
+    trade-off.
     """
 
     PASS = "pass"

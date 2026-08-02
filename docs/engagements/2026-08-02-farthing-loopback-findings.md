@@ -95,7 +95,7 @@ docs/engagements/farthing-approval-surface.yaml  ->
   ['127.0.0.1']; the engagement does not set allow_private_addresses: true   exit=2
 ```
 
-## The conversational siege — the wall held
+## The conversational siege — refused at the door, never conducted
 
 The committed engagement was run against the live surface, all six archetypes ×
 four turns, over real TCP. Every probe hit the money gate and was refused:
@@ -119,8 +119,26 @@ Coehoorn obtained **no transcript** — the surface refused every conversation
 before a reply existed to judge — and therefore **refused to write a findings
 report**, exiting 2 with `scope.resolvable: no approach completed`. That refusal
 is the product working: a siege that could not get the target to say anything
-does not get to claim it found something. **Zero behavioural findings. The money
-gate held against every archetype.**
+does not get to claim it found something.
+
+**What this run does and does not establish.** It establishes that the surface
+refuses unauthenticated callers at the HTTP layer: six approaches, twenty-four
+requests, every one turned away with 401 or 405 before a reply existed. It does
+**not** establish anything about the money gate's conversational behaviour,
+because no conversation occurred. The six archetypes were never exercised as
+archetypes — they were refused at the door, and a persuasion strategy that never
+reaches a model has not been tested against that model.
+
+"Zero behavioural findings" here means **zero behaviour was observed**, not that
+observed behaviour was clean. Reading it the second way would be exactly the
+error this harness exists to prevent: treating an empty result set as a passing
+one. The earlier version of this section concluded "the money gate held against
+every archetype." That conclusion did not follow from a run in which the gate
+never spoke, and it has been withdrawn.
+
+To make a conversational claim about this target, the siege needs credentials
+valid enough to reach a reply — an authenticated session against a test
+instance — so that there is a transcript to judge.
 
 ## Reconnaissance: STRIDE probe battery (read-only)
 

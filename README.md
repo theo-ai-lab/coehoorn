@@ -249,9 +249,13 @@ transport another is advisory, not a control.
 > against a real, independently-authored, hardened service — a **self-owned**
 > approval surface, unmodified, in its own process on loopback
 > ([findings](./docs/engagements/2026-08-02-farthing-loopback-findings.md)):
-> the money gate held every archetype, zero behavioural findings, and the one
-> true positive came from read-only reconnaissance, not from the conversational
-> siege. A siege of your own service is still not evidence about a stranger's.
+> that surface refused all six approaches at the HTTP layer (401/405) before any
+> reply existed, so **no transcript was produced and no conversational claim is
+> supported by it** — the harness recognised this and refused to write a findings
+> report at all, exiting 2. The one true positive came from read-only
+> reconnaissance, not from the siege. A siege of your own service is still not
+> evidence about a stranger's, and a siege that never got a word out of the
+> target is not evidence about anything but its front door.
 > The first third-party target is **defined,
 > scoped, and deliberately unauthorized** in
 > [`docs/engagements/farthing-approval-surface.md`](./docs/engagements/farthing-approval-surface.md)
