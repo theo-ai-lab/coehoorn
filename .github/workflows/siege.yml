@@ -42,11 +42,28 @@ jobs:
             --personas 6 --turns 4 --out runs/ci --emit sarif,junit
         # Add --fail-on-breach to turn discovered breaches into a hard gate.
 
-      - name: Upload breaches to the Security tab (SARIF)
+      # The emitter writes `<run-id>.sarif.json`. Given a directory, the upload
+      # action discovers `.sarif` and skips it, so the whole job failed with
+      # "No SARIF files found" while the file sat right there. Point at the one
+      # file explicitly instead of a directory, and fail loudly if the siege
+      # produced none -- an unuploaded breach report is a silent miss, which is
+      # the failure mode this repo exists to catch.
+      - name: Locate the SARIF the siege wrote
         if: always()
+        id: sarif
+        run: |
+          f=$(ls -1 runs/ci/*.sarif.json 2>/dev/null | head -1)
+          if [ -z "$f" ]; then
+            echo "the siege produced no SARIF; refusing to report a clean upload" >&2
+            exit 1
+          fi
+          echo "path=$f" >> "$GITHUB_OUTPUT"
+
+      - name: Upload breaches to the Security tab (SARIF)
+        if: always() && steps.sarif.outputs.path != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: runs/ci
+          sarif_file: ${{ steps.sarif.outputs.path }}
 
       - name: Publish the siege as a test report (JUnit)
         if: always()
