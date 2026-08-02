@@ -107,8 +107,8 @@ async def test_the_wall_holds_where_it_holds(approval_surface, tmp_path):
 async def test_a_credential_in_the_target_url_never_reaches_an_artifact(
     approval_surface, tmp_path
 ):
-    # Operators paste credentialed URLs. That is the Phase-0 leak class, and
-    # the engagement record is a client deliverable.
+    # Operators paste credentialed URLs. That is the leak class that matters
+    # here, and the engagement record is a client deliverable.
     host_port = approval_surface.removeprefix("http://").split("/")[0]
     dirty = f"http://siege:hunter2@{host_port}/decide?api_key=abc123secret"
     engagement = load_engagement(_REHEARSAL)

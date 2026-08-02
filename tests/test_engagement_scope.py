@@ -244,8 +244,8 @@ def test_a_dns_failure_is_a_refusal_not_a_shrug():
 
 def test_the_refusal_does_not_quote_the_credential_it_refused():
     # The refused URL goes into logs, CI output and an operator's terminal.
-    # It is exactly the Phase-0 leak class, so it goes through the same
-    # redaction boundary every artifact uses.
+    # It is exactly the leak class the redaction boundary exists for, so it
+    # goes through the same boundary every artifact uses.
     url = "https://siege:hunter2@evil.example/chat?api_key=abc123secret"
     with pytest.raises(EngagementRefused) as exc:
         _scope().check(url, resolver=_RESOLVE)
@@ -320,9 +320,9 @@ _SPACE_RESOLVE = _resolver({
 def test_every_target_is_either_in_scope_or_names_the_rule_that_refused(seed):
     """The invariant, over the generated space: there is no third outcome.
 
-    No property-based-testing library is a dependency of this repo, and this
-    slice may not add one, so the generator is a seeded deterministic loop —
-    same shape, reproducible from the seed printed in any failure.
+    The dependency budget has no room for a generative-testing library, so the
+    generator is a seeded deterministic loop — same shape, reproducible from the
+    seed printed in any failure.
     """
     rng = random.Random(seed)
     scope = _scope(

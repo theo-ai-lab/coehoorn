@@ -166,11 +166,10 @@ class SelectiveRiskCertificate(BaseModel):
             raise ValueError("n_errors cannot exceed n_decided")
         if self.n_decided + self.n_abstained_by_judge != self.n_labeled:
             raise ValueError("n_decided + n_abstained_by_judge must equal n_labeled")
-        if self.hoeffding_upper + 1e-9 < self.wilson_upper and self.n_decided > 0:
-            # Informational ordering note only when both are defined; Hoeffding is
-            # the conservative (wider) bound by construction at the n the offline
-            # siege reaches, but we do not hard-assert it across all n.
-            pass
+        # Deliberately NOT asserted: that hoeffding_upper >= wilson_upper. It
+        # holds at the n an offline siege reaches (Hoeffding is the conservative
+        # bound there), but it is not a theorem for every n, and a validator that
+        # encodes a coincidence would reject a legitimate certificate.
         return self
 
 

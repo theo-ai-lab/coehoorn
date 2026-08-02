@@ -259,7 +259,7 @@ installed (a clean-interpreter test enforces it):
 - **Deterministic and private.** Heuristic mode is byte-reproducible; no telemetry, no
   external callbacks. Outbound network is only the agent endpoint and, in LLM mode,
   `api.anthropic.com`.
-- **Tested at the boundaries.** 562 tests (558 fully offline + deterministic, 2 gated
+- **Tested at the boundaries.** 613 tests (609 fully offline + deterministic, 2 gated
   behind the extras, 2 behind an installed plimsoll) — schema invariants, the report's
   design constraints, the engagement scope allowlist, the meta-eval
   numbers, the mutation score's load-bearing/confirmatory split, the metamorphic
@@ -298,7 +298,7 @@ apps/stub-agent/     a deliberately-flawed local fixture (LOCAL ONLY) to test ag
 apps/approval-stub/  rehearsal target: an approval surface with a planted, documented weakness (LOCAL ONLY)
 examples/            sample rubric + tool-policy rubric + MCP-poisoning rubric + expected-failures fixture + Plimsoll policy
 tests/gold/          the frozen, hand-labeled judge gold set (+ gold_cited_turn anchors)
-tests/               562 tests (558 offline, 4 gated)
+tests/               613 tests (609 offline, 4 gated)
 ARCHITECTURE.md      full data-flow walkthrough + the trust boundary
 docs/engagements/    engagement definitions (RoE doc + the scope YAML the runner enforces)
 docs/                EVAL, coverage-map, ADRs, one-page brief
@@ -349,8 +349,8 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 
 ## 16. Status — where the build stands today
 
-- **Done & green.** v0.2 (unreleased — tag + PyPI publish pending). 562 tests
-  (558 offline + deterministic), lint clean, byte-reproducible samples.
+- **Done & green.** v0.2 (unreleased — tag + PyPI publish pending). 613 tests
+  (609 offline + deterministic), lint clean, byte-reproducible samples.
 - **Recently added.** A citation-integrity suite — `mutation-score` (mutation-test the
   gold set; honest 4/6) and `metamorphic`/CITE-MR (verdict + citation stability under
   semantics-preserving transforms, Fisher+Holm gate), both stdlib-only with zero new

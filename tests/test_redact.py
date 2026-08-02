@@ -43,9 +43,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 COACH = str(REPO_ROOT / "examples" / "rubric_coach.yaml")
 NOW = datetime(2026, 5, 17, 10, 8, 0, tzinfo=UTC)
 
-# Assembled at runtime rather than written as a literal: the repo's secret
-# scanner (rightly) refuses to commit anything key-SHAPED, and a fixture is not
-# worth weakening it for. The value is synthetic and was never a credential.
+# Assembled at runtime rather than written as a literal so no committed line
+# ever carries an api-key-SHAPED string a scanner would have to triage. The
+# value is synthetic and was never a credential.
 _FAKE_KEY = "sk" + "-" + "notarealkeyvalue" + "0" * 8
 
 STANDARD = RedactionPolicy.for_level("standard")

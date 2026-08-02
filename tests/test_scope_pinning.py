@@ -155,7 +155,8 @@ class TestEnvironmentCannotRerouteAnApprovedTarget:
     allowlist and the reserved-address refusal at once, and it needs no access to
     the engagement file — only an environment variable.
 
-    Found by an adversarial review, then confirmed against httpx 0.28.1.
+    Found by auditing everything between the scope decision and the socket, then
+    confirmed against httpx 0.28.1.
     """
 
     @pytest.mark.asyncio

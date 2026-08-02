@@ -6,7 +6,7 @@
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Runtime deps: 5](https://img.shields.io/badge/runtime%20deps-5-informational)
 ![Offline · no telemetry](https://img.shields.io/badge/offline-no%20telemetry-success)
-![Tests: 558 offline](https://img.shields.io/badge/tests-558%20offline-success)
+![Tests: 609 offline](https://img.shields.io/badge/tests-609%20offline-success)
 
 **The problem.** You're shipping a chat or tool-using agent. It passes unit tests —
 then in a real multi-turn conversation it caves under pressure, fabricates a
@@ -245,7 +245,14 @@ transport another is advisory, not a control.
 > gate, HTTP adapter, probes, offline judge, redaction, cited artifact. The
 > *target* in the runnable rehearsal is `apps/approval-stub`, a server this
 > repo wrote with a **planted, documented** weakness, so catching it
-> demonstrates plumbing, not prowess. The first real target is **defined,
+> demonstrates plumbing, not prowess. The spine has additionally been run
+> against a real, independently-authored, hardened service — a **self-owned**
+> approval surface, unmodified, in its own process on loopback
+> ([findings](./docs/engagements/2026-08-02-farthing-loopback-findings.md)):
+> the money gate held every archetype, zero behavioural findings, and the one
+> true positive came from read-only reconnaissance, not from the conversational
+> siege. A siege of your own service is still not evidence about a stranger's.
+> The first third-party target is **defined,
 > scoped, and deliberately unauthorized** in
 > [`docs/engagements/farthing-approval-surface.md`](./docs/engagements/farthing-approval-surface.md)
 > — `authorized: false` makes it unrunnable until a written authorization

@@ -46,7 +46,7 @@ $ ps -o pid,ppid,command -p 44684
   PID  PPID COMMAND
 44684     1 .../Python -m uvicorn farthing.approval.app:app --host 127.0.0.1 --port 8477 ...
 $ lsof -nP -iTCP:8477 -sTCP:LISTEN
-Python  44684 theo   10u  IPv4 ... TCP 127.0.0.1:8477 (LISTEN)
+Python  44684 ...    10u  IPv4 ... TCP 127.0.0.1:8477 (LISTEN)
 $ curl -sS -D - -o /dev/null http://127.0.0.1:8477/inbox
 HTTP/1.1 401 Unauthorized
 server: uvicorn
@@ -126,9 +126,10 @@ gate held against every archetype.**
 
 Because the conversational wire never gets a reply out of this gate, the
 security-relevant surface was also probed directly with `curl`. Every candidate
-below was run through the FP-check gates (reachable? real mechanism? real
-impact?). **One survived as a true positive; the rest are false positives, and
-that is the expected outcome for a hardened target.**
+below was run through three gates before it could be called a finding —
+reachable? real mechanism? real impact? **One survived as a true positive; the
+rest are false positives, and that is the expected outcome for a hardened
+target.**
 
 ### FINDING (TRUE POSITIVE, severity: LOW — hardening / contract accuracy)
 
