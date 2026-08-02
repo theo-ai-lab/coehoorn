@@ -3,8 +3,8 @@
 **Engagement:** `farthing-approval-loopback` (authorized, self-owned)
 **Date:** 2026-08-02
 **Target:** `src/farthing/approval/app.py` run unmodified under uvicorn on
-`127.0.0.1:8477`, farthing at commit `2cfb4ca` (pre-fix), then `00c6601` (fix).
-**Harness:** coehoorn at commit `a11d308`, offline heuristic judge, no model
+`127.0.0.1:8477`, farthing at commit `740100b` (pre-fix), then `3139d3d` (fix).
+**Harness:** coehoorn at commit `0c61068`, offline heuristic judge, no model
 call, no network egress beyond loopback.
 
 ---
