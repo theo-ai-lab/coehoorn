@@ -23,6 +23,7 @@ from coehoorn.engagement import (
     EngagementRefused,
     EngagementScope,
     RefusalRule,
+    _is_reserved,
     load_engagement,
 )
 
@@ -352,7 +353,13 @@ def test_every_target_is_either_in_scope_or_names_the_rule_that_refused(seed):
         assert (parts.port or 443) in {443, 8443}, url
         assert parts.path.startswith("/chat"), url
         for addr in _SPACE_RESOLVE(host):
-            assert not (
-                addr.is_private or addr.is_loopback or addr.is_link_local
-                or addr.is_reserved or addr.is_multicast or addr.is_unspecified
-            ), f"{url} accepted with reserved address {addr}"
+            # Call the predicate rather than re-stating it. The re-stated
+            # version agreed with the implementation by construction, so it
+            # could not fail for a range the implementation had forgotten —
+            # and it did not, for fec0::/10 and 100.64.0.0/10. What each
+            # address class is classified AS is proven by the named table in
+            # tests/test_reserved_addresses.py; this only asserts the scope
+            # honours that classification.
+            assert not _is_reserved(addr), (
+                f"{url} accepted with reserved address {addr}"
+            )

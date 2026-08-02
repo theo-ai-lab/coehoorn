@@ -202,8 +202,24 @@ def _is_reserved(addr: IpAddress) -> bool:
     mapped = getattr(addr, "ipv4_mapped", None)
     if mapped is not None:
         addr = mapped
+    # Ask whether the address is globally routable, rather than listing the
+    # ranges that are not. The list version shipped six terms and still let two
+    # families through — 100.64.0.0/10 (RFC 6598 carrier-grade NAT, live in ISP
+    # and cloud networks) and fec0::/10 (site-local) — because neither is
+    # is_private, is_reserved, nor any of the other four. Enumerating prefixes
+    # fails open on every range nobody thought of, which is the same reason the
+    # host rule is an allowlist rather than a denylist.
+    #
+    # Global scope is NOT a superset of the old six terms, so this is a union of
+    # both rather than a replacement — it can only ever refuse more than before,
+    # never less. Two terms carry their own weight: 224.0.0.1 is multicast yet
+    # reports is_global=True, and fec0::1 is site-local yet also reports
+    # is_global=True (both checked on CPython 3.11.4 and 3.14.6). getattr because
+    # IPv4Address has no is_site_local.
     return bool(
-        addr.is_private
+        not addr.is_global
+        or getattr(addr, "is_site_local", False)
+        or addr.is_private
         or addr.is_loopback
         or addr.is_link_local
         or addr.is_reserved

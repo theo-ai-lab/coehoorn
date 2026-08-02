@@ -90,11 +90,25 @@ client. A refusal names the rule that refused it
 (`engagement.authorized`, `scope.allowed_hosts`, `scope.allow_private_addresses`,
 …) so the operator knows whether to amend the agreement or stop typing.
 
-**Residual risk we are not claiming to have closed.** The address check
-resolves the host at check time; the HTTP client resolves it again when it
-connects. A DNS rebind between those two moments is not defended against here.
-Closing it requires a transport pinned to the checked address, which this slice
-does not build.
+**Residual risk we are not claiming to have closed.** The pin is fixed for the
+duration of a run, so a target that legitimately changes address mid-engagement
+fails rather than following it. Redirects are not followed, so a target cannot
+hand the runner a new location. Both are deliberate.
+
+Two risks previously listed here have since been closed, and are recorded rather
+than quietly deleted:
+
+- *DNS rebind.* The address check resolved the host, then handed the HTTP client
+  the hostname, which resolved it again — so a record that changed in between was
+  approved on one address and dialled on another. The scope check now returns the
+  addresses it approved and the transport dials one of them, keeping the name only
+  for the `Host` header and TLS SNI.
+- *Incomplete address classification.* The refusal above is stated absolutely, but
+  the check enumerated six ranges and so let two families through: `100.64.0.0/10`
+  (RFC 6598 carrier-grade NAT, live in ISP and cloud networks) and `fec0::/10`
+  (site-local). Neither is `is_private` or `is_reserved`. The check now also
+  requires the address to be globally routable. Every address class is asserted by
+  name in `tests/test_reserved_addresses.py`.
 
 ## 4. Handling of data
 
