@@ -56,7 +56,7 @@ class GoldCase(BaseModel):
     # and defaulting to None so cells that omit it still parse under
     # extra="forbid" (that config forbids *unknown* keys, not a *missing optional*
     # one). The frozen fixture sets it on the gold=fail cells the heuristic can
-    # catch, anchoring the citation-faithfulness check (Feature #2 mutation score)
+    # catch, anchoring the citation-faithfulness check the mutation score runs
     # to ground truth; where it is absent the check falls back to the
     # faithful-by-construction heuristic baseline's cited turn.
     # evaluate_gold deliberately ignores it, so the committed confusion-matrix

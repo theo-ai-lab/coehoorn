@@ -11,12 +11,21 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Iterable
+from collections.abc import Awaitable, Callable, Iterable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from .agent_adapter import AgentCall
-from .schemas import Archetype, ConversationTurn, Persona, Rubric, Transcript
+from .errors import classify_error
+from .schemas import (
+    ApproachError,
+    Archetype,
+    ConversationTurn,
+    Persona,
+    Rubric,
+    Transcript,
+)
 
 if TYPE_CHECKING:
     # Typing-only: the runtime import stays lazy inside run_conversation_llm so
@@ -219,24 +228,29 @@ async def run_conversation_llm(
     )
 
 
-async def run_conversations(
-    personas: Iterable[Persona],
+@dataclass(frozen=True)
+class SiegeOutcome:
+    """Every approach accounted for exactly once: a transcript, or an error.
+
+    There is no third bucket and no silence. ``transcripts`` keeps persona
+    order (not completion order) so the artifact does not depend on which
+    approach happened to finish first.
+    """
+
+    transcripts: list[Transcript]
+    errors: list[ApproachError]
+
+
+def _approach_runner(
     agent_call: AgentCall,
     *,
-    max_turns: int = 4,
-    mode: str = "heuristic",
-    rubric: Rubric | None = None,
-    concurrency: int = 4,
-    probe_overrides: dict[str, list[str]] | None = None,
-) -> list[Transcript]:
-    """Fan out N conversations with bounded concurrency.
-
-    ``probe_overrides`` maps a persona id to an explicit user-turn script. A
-    persona with an override always runs that fixed script (via the scripted
-    heuristic path) regardless of ``mode`` — it is a deterministic attack vector,
-    not an LLM-voiced role. This is how the KB-poisoner persona drives its
-    dedicated write-back-contamination probes end-to-end in a `coehoorn run`.
-    """
+    max_turns: int,
+    mode: str,
+    rubric: Rubric | None,
+    concurrency: int,
+    probe_overrides: dict[str, list[str]] | None,
+) -> Callable[[Persona], Awaitable[Transcript]]:
+    """Build the per-approach coroutine factory shared by both fan-outs."""
     if mode not in {"heuristic", "llm"}:
         raise ValueError(f"unknown mode: {mode!r}")
     if mode == "llm" and rubric is None:
@@ -257,4 +271,84 @@ async def run_conversations(
                 p, agent_call, rubric=rubric, max_turns=max_turns
             )
 
+    return _one
+
+
+async def run_conversations(
+    personas: Iterable[Persona],
+    agent_call: AgentCall,
+    *,
+    max_turns: int = 4,
+    mode: str = "heuristic",
+    rubric: Rubric | None = None,
+    concurrency: int = 4,
+    probe_overrides: dict[str, list[str]] | None = None,
+) -> list[Transcript]:
+    """Fan out N conversations with bounded concurrency; strict variant.
+
+    Any approach failure propagates — the contract the in-process sample
+    builders want, where a failure is a bug and must be loud. A live siege
+    against someone else's agent wants :func:`run_conversations_resilient`
+    instead, which turns a wire failure into a reported error rather than
+    losing the whole run.
+
+    ``probe_overrides`` maps a persona id to an explicit user-turn script. A
+    persona with an override always runs that fixed script (via the scripted
+    heuristic path) regardless of ``mode`` — it is a deterministic attack vector,
+    not an LLM-voiced role. This is how the KB-poisoner persona drives its
+    dedicated write-back-contamination probes end-to-end in a `coehoorn run`.
+    """
+    _one = _approach_runner(
+        agent_call, max_turns=max_turns, mode=mode, rubric=rubric,
+        concurrency=concurrency, probe_overrides=probe_overrides,
+    )
     return await asyncio.gather(*[_one(p) for p in personas])
+
+
+async def run_conversations_resilient(
+    personas: Iterable[Persona],
+    agent_call: AgentCall,
+    *,
+    max_turns: int = 4,
+    mode: str = "heuristic",
+    rubric: Rubric | None = None,
+    concurrency: int = 4,
+    probe_overrides: dict[str, list[str]] | None = None,
+) -> SiegeOutcome:
+    """Fan out N conversations, surviving per-approach failures.
+
+    One 429 from the target used to re-raise out of the bare ``asyncio.gather``
+    and take every completed conversation with it: a run that died at approach
+    5 of 6 wrote no report at all. Here each approach is isolated — it ends as a
+    transcript or as a classified :class:`ApproachError`, and the siege
+    continues either way. The caller decides what a partial run means; this
+    function only guarantees that nothing is lost or miscounted.
+    """
+    _one = _approach_runner(
+        agent_call, max_turns=max_turns, mode=mode, rubric=rubric,
+        concurrency=concurrency, probe_overrides=probe_overrides,
+    )
+    ordered = list(personas)
+    results = await asyncio.gather(
+        *[_one(p) for p in ordered], return_exceptions=True
+    )
+
+    transcripts: list[Transcript] = []
+    errors: list[ApproachError] = []
+    for persona, result in zip(ordered, results, strict=True):
+        if isinstance(result, BaseException):
+            error_class, status_code, retry_after = classify_error(result)
+            errors.append(
+                ApproachError(
+                    persona_id=persona.id,
+                    archetype=persona.archetype,
+                    error_class=error_class,
+                    message=f"{type(result).__name__}: {result}".strip(),
+                    status_code=status_code,
+                    retry_after_seconds=retry_after,
+                    occurred_at=datetime.now(UTC),
+                )
+            )
+        else:
+            transcripts.append(result)
+    return SiegeOutcome(transcripts=transcripts, errors=errors)

@@ -516,6 +516,9 @@
       "worst_moment_turn_index": 1
     }
   ],
+  "errors": [],
+  "partial": false,
+  "approaches_attempted": 6,
   "pass_rate": 0.5,
   "abstention_rate": 0.0,
   "failures_by_criterion": {

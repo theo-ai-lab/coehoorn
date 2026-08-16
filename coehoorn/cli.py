@@ -49,11 +49,12 @@ from .aggregator import (
     write_report_json,
 )
 from .config import headers_from_env, resolve_endpoint
-from .conversation import run_conversations
+from .conversation import run_conversations_resilient
 from .judge import judge_all
 from .meta_eval import evaluate_gold, load_gold_cases
 from .metrics import ProportionEstimate, metrics_from_comparison
 from .personas import generate_personas_heuristic, generate_personas_llm
+from .redact import RedactionPolicy, patterns_from_rubric_file
 from .report_html import write_report_html
 from .rubric_parser import parse_rubric_file
 from .schemas import VerdictOutcome
@@ -94,11 +95,22 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     agent_headers = headers_from_env()
 
     rubric, heuristic_rules = parse_rubric_file(args.rubric)
+    try:
+        redaction = RedactionPolicy.for_level(
+            args.redact, custom=patterns_from_rubric_file(args.rubric)
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    # Everything persisted or printed from here on uses the redacted endpoint;
+    # the adapter keeps the real one, because it has to dial it.
+    endpoint_shown = redaction.endpoint(args.agent)
     allow_llm = bool(os.environ.get("ANTHROPIC_API_KEY"))
     mode = _pick_mode(args.mode, allow_llm)
 
     log(f"mode: {mode}")
-    log(f"agent: {args.agent}")
+    log(f"agent: {endpoint_shown}")
+    log(f"redaction: {redaction.level.value} ({len(redaction.patterns)} patterns)")
     if agent_headers:
         # Confirm auth is wired without ever printing the value.
         log(f"agent auth: {', '.join(sorted(agent_headers))} header(s) from env")
@@ -137,18 +149,46 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     async with HttpAgentAdapter(
         args.agent, timeout=args.timeout, headers=agent_headers or None
     ) as agent:
-        transcripts = await run_conversations(
+        # Resilient fan-out: one 429 must cost one approach, not the run.
+        outcome = await run_conversations_resilient(
             personas, agent, max_turns=args.turns, mode=mode,
             rubric=rubric, concurrency=args.concurrency,
             probe_overrides=probe_overrides,
         )
+    # THE boundary: redact once, here, before anything is judged, written or
+    # printed. Every emitter downstream derives from these objects.
+    transcripts = [redaction.transcript(t) for t in outcome.transcripts]
+    errors = [redaction.approach_error(e) for e in outcome.errors]
     log(f"ran {len(transcripts)} conversations")
+    for e in errors:
+        retry = (
+            f" (retry after {e.retry_after_seconds:.0f}s)"
+            if e.retry_after_seconds is not None
+            else ""
+        )
+        status = f" [{e.status_code}]" if e.status_code is not None else ""
+        print(
+            f"error: approach {e.persona_id} ({e.archetype.value}) did not complete "
+            f"— {e.error_class.value}{status}{retry}: {e.message}",
+            file=sys.stderr,
+        )
+
+    if not transcripts:
+        # No transcript means no report is representable. Say so and exit
+        # non-zero rather than writing an artifact that looks like a clean run.
+        print(
+            f"error: no approach completed ({len(errors)} of {len(personas)} failed); "
+            "no report written.",
+            file=sys.stderr,
+        )
+        return 2
 
     verdicts = judge_all(transcripts, rubric, heuristic_rules, mode=mode)
     completed = datetime.now(UTC)
     report = build_report(
         rubric=rubric, transcripts=transcripts, verdicts=verdicts,
-        agent_endpoint=args.agent, created_at=started, completed_at=completed,
+        agent_endpoint=endpoint_shown, created_at=started, completed_at=completed,
+        errors=errors,
     )
 
     out_dir = Path(args.out)
@@ -169,16 +209,24 @@ async def _cmd_run(args: argparse.Namespace) -> int:
     breaches = sum(1 for v in verdicts if v.outcome is VerdictOutcome.FAIL)
     held = sum(1 for v in verdicts if v.outcome is VerdictOutcome.PASS)
     abstained = sum(1 for v in verdicts if v.outcome is VerdictOutcome.ABSTAIN)
+    errors_by_class: dict[str, int] = {}
+    for e in errors:
+        errors_by_class[e.error_class.value] = errors_by_class.get(e.error_class.value, 0) + 1
 
     if args.json:
         # Stable, documented key set for `coehoorn run --json | jq`.
         print(json.dumps({
             "run_id": report.run_id,
             "mode": mode,
-            "agent_endpoint": args.agent,
+            "agent_endpoint": report.agent_endpoint,
             "personas": args.personas,
             "turns": args.turns,
             "transcripts": len(transcripts),
+            "redact": redaction.level.value,
+            "approaches_attempted": report.approaches_attempted,
+            "partial": report.partial,
+            "errors": len(errors),
+            "errors_by_class": errors_by_class,
             "breaches": breaches,
             "held": held,
             "abstained": abstained,
@@ -194,6 +242,13 @@ async def _cmd_run(args: argparse.Namespace) -> int:
             f"\nresult: {breaches}/{len(verdicts)} approaches breached "
             f"({report.pass_rate * 100:.0f}% held, {report.abstention_rate * 100:.0f}% abstained)"
         )
+        if report.partial:
+            classes = ", ".join(f"{n} {c}" for c, n in sorted(errors_by_class.items()))
+            log(
+                f"PARTIAL: {len(errors)} of {report.approaches_attempted} approaches "
+                f"did not complete ({classes}); the rates above cover the "
+                f"{len(verdicts)} that did."
+            )
         log(f"json:  {json_path}")
         log(f"html:  {html_path}")
         for k, p in extra_paths.items():
@@ -339,6 +394,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exit non-zero if any approach breached (opt-in gate semantics).",
     )
     run_p.add_argument(
+        "--redact", choices=["off", "standard", "strict"], default="standard",
+        help=(
+            "Redaction applied to every transcript BEFORE it is judged, written "
+            "or printed: off | standard (credentials, email, SSN, cards) | "
+            "strict (adds phone, IPv4, hex digests). Patterns a rubric declares "
+            "in its `redaction:` block apply at every level, including off."
+        ),
+    )
+    run_p.add_argument(
         "--emit", default="",
         help="Comma-separated extra CI outputs: sarif,junit (in addition to json+html).",
     )
@@ -378,6 +442,7 @@ def build_parser() -> argparse.ArgumentParser:
     # surface, registered here so build_parser() stays the single CLI assembly
     # point.
     from .distill import register_subparser as _register_distill_floor
+    from .engagement import register_subparser as _register_engage
     from .mcp_redteam import register_subparser as _register_mcp_siege
     from .metamorphic import register_subparser as _register_metamorphic
     from .mutants import register_subparser as _register_mutation_score
@@ -385,6 +450,7 @@ def build_parser() -> argparse.ArgumentParser:
     from .selective_risk import register_subparser as _register_selective_risk
     from .selfplay.cli import register_subparser as _register_self_play
 
+    _register_engage(sub)
     _register_mutation_score(sub)
     _register_metamorphic(sub)
     _register_overfit_audit(sub)

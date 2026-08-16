@@ -12,11 +12,16 @@
 #   * ANTHROPIC_API_KEY(secret, optional) — enables LLM-mode personas+judge;
 #                       absent => deterministic heuristic mode.
 #
-# When AGENT_ENDPOINT is absent (e.g. a fork PR with no secrets) the whole job
-# no-ops gracefully: the guard step reports "not configured" and every real
-# step is skipped, so the check still goes green. Choosing a real endpoint and
-# supplying these keys is the deliberately un-fakeable part — see
-# docs/ENGAGEMENT_TEMPLATE.md.
+# When AGENT_ENDPOINT is absent (e.g. a fork PR with no secrets) the siege job
+# is SKIPPED, not passed. That distinction is the whole point: this repo's
+# claim is that a verdict for work that did not happen should be structurally
+# unrepresentable, and a green check for a siege that never ran is exactly that
+# lie. The guard lives in its own job because a job-level `if:` cannot read the
+# `secrets` context — only a step can — so the guard resolves the endpoint and
+# publishes a job output the siege gates on.
+#
+# Choosing a real endpoint and supplying these keys is the deliberately
+# un-fakeable part — see docs/ENGAGEMENT_TEMPLATE.md.
 name: external-siege
 
 on:
@@ -42,11 +47,36 @@ permissions:
   pull-requests: write     # post the cited-breach summary comment
 
 jobs:
+  # Resolve whether a real target exists. This is a job of its own solely
+  # because `secrets` is not readable from a job-level `if:` — only a step can
+  # see it — and the siege must be gated at the JOB level so an unconfigured
+  # run is scored SKIPPED rather than SUCCESS.
+  target:
+    runs-on: ubuntu-latest
+    permissions: {}          # the guard reads config and nothing else
+    outputs:
+      configured: ${{ steps.guard.outputs.configured }}
+    steps:
+      - name: Check whether a target is configured
+        id: guard
+        env:
+          # A repo VARIABLE is fine for the URL (not secret); a SECRET takes
+          # precedence if both are set.
+          AGENT_ENDPOINT: ${{ secrets.AGENT_ENDPOINT || vars.AGENT_ENDPOINT }}
+        run: |
+          if [ -z "${AGENT_ENDPOINT}" ]; then
+            echo "::notice::No AGENT_ENDPOINT configured — the external siege will be SKIPPED, not passed."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Target configured; the live siege will run."
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
   external-siege:
+    needs: target
+    if: needs.target.outputs.configured == 'true'
     runs-on: ubuntu-latest
     env:
-      # A repo VARIABLE is fine for the URL (not secret); a SECRET takes
-      # precedence if both are set.
       AGENT_ENDPOINT: ${{ secrets.AGENT_ENDPOINT || vars.AGENT_ENDPOINT }}
       AGENT_API_KEY: ${{ secrets.AGENT_API_KEY }}
       AGENT_AUTH_HEADER: ${{ secrets.AGENT_AUTH_HEADER }}
@@ -55,31 +85,16 @@ jobs:
       PERSONAS: ${{ inputs.personas || '6' }}
       TURNS: ${{ inputs.turns || '4' }}
     steps:
-      - name: Check whether a target is configured
-        id: guard
-        run: |
-          if [ -z "${AGENT_ENDPOINT}" ]; then
-            echo "No AGENT_ENDPOINT configured — skipping external siege (no-op)."
-            echo "configured=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Target configured; the live siege will run."
-            echo "configured=true" >> "$GITHUB_OUTPUT"
-          fi
+      - uses: actions/checkout@v6
 
-      - if: steps.guard.outputs.configured == 'true'
-        uses: actions/checkout@v6
-
-      - if: steps.guard.outputs.configured == 'true'
-        uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.11"
 
       - name: Sync (core only — no extras)
-        if: steps.guard.outputs.configured == 'true'
         run: uv sync
 
       - name: Lay siege to the external agent — emit SARIF + JUnit
-        if: steps.guard.outputs.configured == 'true'
         run: |
           mkdir -p runs/external
           # Endpoint + auth come from the env (resolved by coehoorn.config), so
@@ -94,19 +109,18 @@ jobs:
             --json | tee runs/external/summary.json
 
       - name: Upload cited breaches to the Security tab (SARIF)
-        if: steps.guard.outputs.configured == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: runs/external
 
       - name: Publish the siege as a test report (JUnit)
-        if: always() && steps.guard.outputs.configured == 'true'
+        if: always()
         uses: mikepenz/action-junit-report@v5
         with:
           report_paths: runs/external/*.junit.xml
 
       - name: Comment cited breaches on the PR
-        if: always() && github.event_name == 'pull_request' && steps.guard.outputs.configured == 'true'
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |

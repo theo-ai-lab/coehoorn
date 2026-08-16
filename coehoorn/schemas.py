@@ -28,6 +28,8 @@ from pydantic import (
     model_validator,
 )
 
+from .errors import ErrorClass
+
 
 class Archetype(StrEnum):
     """The six adversarial persona archetypes; single source of truth
@@ -50,6 +52,16 @@ class CriterionStatus(StrEnum):
     false-negative count in the meta-eval. Making abstention its own state
     keeps illegal combinations — a failure with no cited turn, a pass that
     cites a breach — unrepresentable rather than merely discouraged.
+
+    One case deliberately does NOT abstain, and the exception is stated here so
+    this docstring is not read as an absolute the code then breaks: when a
+    criterion's probe never matched any user turn, the heuristic judge records
+    PASS, on the reading that a mishandling which was never invited did not
+    occur. The frozen gold set encodes the same reading. The consequence is
+    real — pass rates then include criteria that were never exercised — so
+    exercised-criterion counts are reported alongside them. See
+    `test_judge_holds_when_no_probe_matches` for the full statement of the
+    trade-off.
     """
 
     PASS = "pass"
@@ -101,6 +113,35 @@ class Persona(BaseModel):
     archetype: Archetype
     name: str
     description: str
+
+
+class ApproachError(BaseModel):
+    """An approach that never produced a transcript, and why.
+
+    The third outcome of an approach, alongside "the wall held" and "the wall
+    was breached": the wire failed and nothing was learned. It is a first-class
+    persisted record precisely so it cannot be quietly dropped — a Report that
+    carries one is `partial`, and a partial report says so in its header.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    persona_id: str = Field(pattern=r"^p\d{2}$")
+    archetype: Archetype
+    error_class: ErrorClass
+    message: str = Field(min_length=1)
+    status_code: int | None = Field(default=None, ge=100, le=599)
+    retry_after_seconds: float | None = Field(default=None, ge=0)
+    occurred_at: datetime
+
+    @model_validator(mode="after")
+    def _retry_after_only_when_retryable(self) -> ApproachError:
+        if self.retry_after_seconds is not None and self.error_class is not ErrorClass.RETRYABLE:
+            raise ValueError(
+                "retry_after_seconds is only meaningful on a retryable error; "
+                f"got error_class={self.error_class.value}"
+            )
+        return self
 
 
 class Criterion(BaseModel):
@@ -266,6 +307,8 @@ _COMPUTED_FIELD_KEYS: tuple[str, ...] = (
     "abstention_rate",
     "failures_by_criterion",
     "failures_by_archetype",
+    "partial",
+    "approaches_attempted",
 )
 
 
@@ -282,6 +325,8 @@ class Report(BaseModel):
     rubric: Rubric
     transcripts: list[Transcript] = Field(min_length=1)
     verdicts: list[Verdict] = Field(min_length=1)
+    #: Approaches that never produced a transcript. Non-empty => partial run.
+    errors: list[ApproachError] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -293,6 +338,24 @@ class Report(BaseModel):
         if isinstance(data, dict):
             data = {k: v for k, v in data.items() if k not in _COMPUTED_FIELD_KEYS}
         return data
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def partial(self) -> bool:
+        """True when at least one approach never reached the wall.
+
+        Every rate below is computed over the approaches that *completed*.
+        This flag is what stops "2 of 2 held" from being read as "the whole
+        siege held" when a third approach was rate-limited off the wire.
+        """
+        return bool(self.errors)
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def approaches_attempted(self) -> int:
+        """Completed approaches plus failed ones — the denominator a reader
+        of a partial survey actually needs."""
+        return len(self.verdicts) + len(self.errors)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -392,5 +455,18 @@ class Report(BaseModel):
         if len(persona_ids) != len(set(persona_ids)):
             dupes = sorted({p for p in persona_ids if persona_ids.count(p) > 1})
             raise ValueError(f"persona ids must be unique within a Report; duplicates: {dupes}")
+
+        # An approach either produced a transcript or failed — never both, and
+        # never twice. Folding a wire failure into the pass column is the
+        # dishonest outcome this makes unrepresentable rather than discouraged.
+        error_ids = [e.persona_id for e in self.errors]
+        if len(error_ids) != len(set(error_ids)):
+            dupes = sorted({p for p in error_ids if error_ids.count(p) > 1})
+            raise ValueError(f"an approach may fail only once; duplicate errors: {dupes}")
+        overlap = sorted(set(error_ids) & set(persona_ids))
+        if overlap:
+            raise ValueError(
+                f"approach(es) {overlap} recorded as both a transcript and an error"
+            )
 
         return self

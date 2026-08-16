@@ -11,6 +11,75 @@ All notable changes to Coehoorn are recorded here. Versions follow
 > install smoke of the published wheel).
 
 ### Added
+- **Engagements (`coehoorn engage`, `coehoorn/engagement.py`, `docs/engagements/`).**
+  A URL flag is not an engagement. An engagement is a committed definition — a
+  named target, a prose rules-of-engagement document, the exact probe scripts
+  that will be sent, an explicit `authorized:` flag, and a scope allowlist
+  **enforced in code before any socket is opened**. The runner is
+  target-agnostic: it drives the existing `HttpAgentAdapter` at a URL resolved
+  from `--target` / the engagement / `AGENT_ENDPOINT`, judges with the existing
+  offline judge, redacts through the existing `RedactionPolicy`, and writes a
+  third artifact beside the report and the HTML — `<run_id>.engagement.json`,
+  carrying the scope rules applied, the redacted target, every approach that
+  never landed, and every finding cited to a turn that resolves.
+
+  The scope is an allowlist because a runner that dials an operator-supplied
+  URL is SSRF surface. Hosts match exactly (no wildcards, so a subdomain needs
+  its own line), and loopback/private/link-local/reserved/multicast/unspecified
+  addresses — including IPv4-mapped IPv6 forms of them — are refused *even when
+  the operator allowlisted the host*, unless the engagement carries a written
+  `allow_private_addresses: true`. DNS is resolved and every returned address
+  is checked, so a name that resolves inward is refused too; a resolution
+  failure is a refusal, not a shrug. Each refusal names the rule
+  (`engagement.authorized`, `scope.allowed_hosts`,
+  `scope.allow_private_addresses`, …), exits 2, and passes the refused URL
+  through the redaction boundary so a pasted credential is not echoed into a CI
+  log. The URL the check *returns* is the representation every clause was
+  decided on — dot segments removed — and it is what the runner dials: an
+  adversarial sweep of the first cut found two parse differentials where the
+  check decided on `urlsplit`'s view and handed the operator's raw string to
+  the transport (`/chat/../../admin` satisfied a `/chat` prefix and routes to
+  `/admin`; a URL carrying `\n` was judged in the sanitised form `urlsplit`
+  produces and dialled in the raw one). Control characters are now refused
+  rather than silently stripped, and dot segments — including percent-encoded
+  ones — are resolved before the prefix clause. **Not** defended against: a DNS
+  rebind between the check and the connect, which would need an address-pinned
+  transport.
+
+  What this does and does not demonstrate is stated in the README and in the
+  engagement docs: the spine is proven end to end over a real socket against
+  `apps/approval-stub` (a rehearsal target this repo wrote, with a **planted,
+  documented** weakness — `uv run python scripts/rehearse_engagement.py`), and
+  the first real target is **defined, scoped and deliberately unauthorized**.
+  No third-party agent has been sieged.
+- **Redaction as a boundary (`coehoorn/redact.py`, `--redact off|standard|strict`).**
+  A siege transcript is someone else's user data, and it reaches five
+  persistence paths (`report.json`, the self-contained HTML, SARIF, JUnit,
+  stdout). The policy is applied once, to the `Transcript`, *before* it is
+  judged or assembled — so every emitter is clean by construction rather than
+  by five separate promises. `standard` covers credentials, email, US SSNs and
+  Luhn-valid card numbers; `strict` adds phone, IPv4 and hex digests; a rubric
+  may declare its own `redaction: patterns:` block (which applies even at
+  `off`, being a stated requirement rather than a default). URL credentials —
+  `user:pass@host` userinfo and credential-bearing query parameters — are
+  stripped by the same `text` rule every persisted string goes through, so the
+  `agent_endpoint`, a transcript quoting a URL, and the wire error that quotes
+  the request URL are all cleaned identically; the host and path survive,
+  because which agent was besieged is the record. There is deliberately
+  **no Shannon-entropy fallback**: entropy fires on base64 and JSON, which is
+  most of a tool-calling transcript. A per-emitter leak matrix and a
+  `--redact off` control test keep the boundary honest.
+- **Per-approach error outcomes (`coehoorn/errors.py`).** An approach that
+  fails on the wire is classified — `retryable` (429/503/timeout, honouring
+  `Retry-After` in both wire forms), `caller_fault` (401/404/400) or `system` —
+  and carried in the report as an `ApproachError`. `Retry-After` is recorded
+  only on `retryable`: targets do send it on a 403 (GitHub's secondary rate
+  limit, Cloudflare), but "come back in 60s" is false advice for a wrong
+  credential, and the record refuses the pair outright. A report carrying one is
+  `partial`, and says so in the HTML header, the `--json` summary and the human
+  log. A wire failure can never be folded into the pass column: the schema
+  refuses to record one approach as both a transcript and an error.
+
 - **MCP tool-poisoning attack pack (`coehoorn mcp-siege`).** A runnable,
   offline, byte-reproducible tool-poisoning fixture — three archetypes, hero
   first: **rug-pull** (a benign tool whose description mutates malicious
@@ -170,6 +239,19 @@ All notable changes to Coehoorn are recorded here. Versions follow
 - **Removed the Jinja2 dependency** — the report renders in pure Python.
 
 ### Fixed
+- **One 429 no longer destroys a whole siege.** The fan-out was a bare
+  `asyncio.gather` with the default `return_exceptions=False`, so a single
+  rate-limited approach re-raised and discarded every conversation that had
+  already completed — a run that died at approach 5 of 6 wrote no report at
+  all. `coehoorn run` now uses a resilient fan-out; a run where *every*
+  approach fails writes no report and exits 2 instead of raising a traceback.
+- **The external-siege workflow no longer mints a green check for a siege it
+  did not run.** The guard was the first step of the siege job and every real
+  step carried `if: steps.guard.outputs.configured`, which GitHub scores
+  **success**: 17 of 17 scheduled runs concluded green having executed nothing.
+  The guard is now its own job and the siege is gated at the job level, so an
+  unconfigured siege is **skipped**. A test pins the shape for every workflow
+  in the repo.
 - The MCP rubric ships inside the package (`coehoorn/data/rubric_mcp.yaml`),
   so an installed `coehoorn mcp-siege` works with no repository checkout —
   it previously loaded from the repo's `examples/` tree, which a wheel

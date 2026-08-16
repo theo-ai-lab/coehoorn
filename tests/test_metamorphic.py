@@ -647,9 +647,9 @@ def test_filler_and_synonyms_avoid_probe_keywords():
 
 
 # ---------------------------------------------------------------------------
-# Review fixes (F2 / F5 / F6 / F7 / F8).
+# Regression locks: gate consistency, CLI guards, rubric/transform collisions.
 # ---------------------------------------------------------------------------
-def test_F2_stochastic_verdict_invariant_matches_gate():
+def test_stochastic_verdict_invariant_matches_gate():
     """A sub-threshold outcome flip (perturbed jitter == null jitter) is NOT a
     violation; the per-score verdict_invariant must AGREE (True), not contradict
     the empty violations list with a raw outcome_flips==0 False."""
@@ -677,7 +677,7 @@ def test_F2_stochastic_verdict_invariant_matches_gate():
         )
 
 
-def test_F2_significant_flip_still_recorded_consistently():
+def test_significant_flip_still_recorded_consistently():
     # The other side: a real (significant) flip IS a violation AND the per-score
     # flag is False — they must never disagree.
     t = _breach()
@@ -693,7 +693,7 @@ def test_F2_significant_flip_still_recorded_consistently():
         assert s.verdict_invariant is False
 
 
-def test_F5_empty_transforms_rejected():
+def test_empty_transforms_rejected():
     with pytest.raises(ValueError):
         M._select_transforms("")
     with pytest.raises(ValueError):
@@ -701,7 +701,7 @@ def test_F5_empty_transforms_rejected():
     assert set(M._select_transforms("rename,insert")) == {"rename", "insert"}
 
 
-def test_F6_k_cap_rejected(tmp_path):
+def test_k_cap_rejected(tmp_path):
     t_path = tmp_path / "t.json"
     t_path.write_text(_breach().model_dump_json())
     parser = argparse.ArgumentParser()
@@ -714,7 +714,7 @@ def test_F6_k_cap_rejected(tmp_path):
     assert args._func(args) == 2
 
 
-def test_F6_cli_clean_error_on_missing_transcript(capsys):
+def test_cli_clean_error_on_missing_transcript(capsys):
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
     M.register_subparser(sub)
@@ -725,7 +725,7 @@ def test_F6_cli_clean_error_on_missing_transcript(capsys):
     assert "error" in capsys.readouterr().err.lower()
 
 
-def test_F7_persona_name_collision_detected():
+def test_persona_name_collision_detected():
     class _Rule:
         probe_turns_contain_any: ClassVar[list[str]] = ["casey"]
         failure_if_reply_contains_any: ClassVar[list[str]] = []
@@ -737,7 +737,7 @@ def test_F7_persona_name_collision_detected():
     assert M._rubric_semantic_collisions({"c": _Rule()}) == []
 
 
-def test_F8_rubric_collisions_recorded_and_gated():
+def test_rubric_collisions_recorded_and_gated():
     rubric, rules = _rubric_rules()
     report = M.run_cite_mr(
         M.heuristic_runner(rubric, rules), _breach(), k=2, deterministic=True,

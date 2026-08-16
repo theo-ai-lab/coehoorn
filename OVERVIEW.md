@@ -98,9 +98,10 @@ rubric.yaml
    │  personas.generate_personas_*()
    ▼
 [Persona × N]                        ← 6 archetypes
-   │  conversation.run_conversations()  (asyncio fan-out, bounded concurrency)
+   │  conversation.run_conversations_resilient()  (asyncio fan-out, bounded)
    ▼
-[Transcript × N]                     ← turn-indexed; turns capture tool calls
+[Transcript × N] + [ApproachError × M]  ← turn-indexed; turns capture tool calls
+                                        M > 0 ⇒ the report is `partial`
    │  judge.judge_all()                 (heuristic OR LLM; one retry, no silent fallback)
    ▼
 [Verdict × N]                        ← pass / fail / abstain, each FAIL cites a turn
@@ -119,7 +120,11 @@ Report ──► report_html → the Siege Survey (.html)
    `edge_case`. Heuristic (curated pool, offline) or LLM (Anthropic Opus).
 3. **Conversations** (`conversation.py`). Fans out N conversations concurrently
    (`asyncio.gather` + a semaphore — no framework). Each run becomes a `Transcript`,
-   and each agent reply can carry the **tool calls** it made.
+   and each agent reply can carry the **tool calls** it made. An approach that fails
+   on the wire becomes a classified `ApproachError` (`retryable` / `caller_fault` /
+   `system`, honouring `Retry-After`) instead of killing the siege — the run
+   continues, the report is marked **partial**, and a lost approach is never
+   counted as a wall that held.
 4. **Judging** (`judge.py`). Scores each transcript and emits a `Verdict`. Discovery
    semantics: any criterion breach fails the transcript. The heuristic judge is offline
    and rule-based (text *and* tool-policy checks); the LLM judge (Anthropic Sonnet)
@@ -254,9 +259,9 @@ installed (a clean-interpreter test enforces it):
 - **Deterministic and private.** Heuristic mode is byte-reproducible; no telemetry, no
   external callbacks. Outbound network is only the agent endpoint and, in LLM mode,
   `api.anthropic.com`.
-- **Tested at the boundaries.** 361 tests (357 fully offline + deterministic, 2 gated
+- **Tested at the boundaries.** 613 tests (609 fully offline + deterministic, 2 gated
   behind the extras, 2 behind an installed plimsoll) — schema invariants, the report's
-  design constraints, the meta-eval
+  design constraints, the engagement scope allowlist, the meta-eval
   numbers, the mutation score's load-bearing/confirmatory split, the metamorphic
   Fisher+Holm gate, byte-reproducibility, the network adapter, and the tool-policy checks.
 
@@ -275,7 +280,7 @@ coehoorn/  (modules listed roughly largest-first)
   schemas.py         the Pydantic wire contract — the trust boundary (+ ToolCall)
   judge.py           heuristic + LLM judges; text + tool-policy (ASI02/ASI03)
   mcp_redteam.py     MCP tool-poisoning pack — loopback fixture + rug-pull / description-poisoning / cross-server-shadowing
-  cli.py             run / compare / meta-eval / mutation-score / metamorphic / mcp-siege
+  cli.py             run / engage / compare / meta-eval / mutation-score / metamorphic / mcp-siege
   meta_eval.py       audit the auditor — score the judge vs gold; + gold_cited_turn anchor
   cascade.py         cheap→expensive judging-tier telemetry (alpha / disagreement / lossless)
   personas.py        heuristic + LLM adversarial persona generators
@@ -288,11 +293,14 @@ coehoorn/  (modules listed roughly largest-first)
   rubric_parser.py   YAML → Rubric + heuristic rules (text + tool policy)
   mcp_server.py      optional: MCP server exposing a siege as a tool
   agent_adapter.py   HTTP / callable adapters (one reused client; AgentReply w/ tools)
+  engagement.py      engagement definition + enforced scope allowlist (SSRF control) + target-agnostic runner
 apps/stub-agent/     a deliberately-flawed local fixture (LOCAL ONLY) to test against
+apps/approval-stub/  rehearsal target: an approval surface with a planted, documented weakness (LOCAL ONLY)
 examples/            sample rubric + tool-policy rubric + MCP-poisoning rubric + expected-failures fixture + Plimsoll policy
 tests/gold/          the frozen, hand-labeled judge gold set (+ gold_cited_turn anchors)
-tests/               361 tests (357 offline, 4 gated)
+tests/               613 tests (609 offline, 4 gated)
 ARCHITECTURE.md      full data-flow walkthrough + the trust boundary
+docs/engagements/    engagement definitions (RoE doc + the scope YAML the runner enforces)
 docs/                EVAL, coverage-map, ADRs, one-page brief
 runs/sample/         committed chat sample (byte-reproducible)
 runs/sample-tools/   committed tool-siege sample (catches ASI02/ASI03) + its Plimsoll trace export
@@ -341,8 +349,8 @@ uv run coehoorn run --rubric examples/rubric_coach.yaml \
 
 ## 16. Status — where the build stands today
 
-- **Done & green.** v0.2 (unreleased — tag + PyPI publish pending). 361 tests
-  (357 offline + deterministic), lint clean, byte-reproducible samples.
+- **Done & green.** v0.2 (unreleased — tag + PyPI publish pending). 613 tests
+  (609 offline + deterministic), lint clean, byte-reproducible samples.
 - **Recently added.** A citation-integrity suite — `mutation-score` (mutation-test the
   gold set; honest 4/6) and `metamorphic`/CITE-MR (verdict + citation stability under
   semantics-preserving transforms, Fisher+Holm gate), both stdlib-only with zero new

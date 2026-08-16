@@ -70,7 +70,10 @@ def test_api_key_maps_to_bearer():
 def test_raw_authorization_header_not_overwritten_by_api_key():
     env = {
         "AGENT_AUTH_HEADER": "Authorization: Token raw-wins",
-        "AGENT_API_KEY": "sk-should-be-ignored",
+        # Deliberately shorter than the 8-char tail that secret scanners key on:
+        # this is a fixture proving precedence, and a fixture should not look
+        # enough like a credential to trip the tooling that guards real ones.
+        "AGENT_API_KEY": "sk-ignore",
     }
     assert headers_from_env(env) == {"Authorization": "Token raw-wins"}
 

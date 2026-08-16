@@ -10,6 +10,17 @@ The value of this document is that **every claim is checkable**: each breach
 points at a transcript turn, and the same SARIF/JUnit it cites is what the
 target team already consumes in CI.
 
+> **There is now an executable form of this document.** `coehoorn engage` runs
+> an engagement *defined* in [`engagements/`](./engagements/) — a target, a
+> rules-of-engagement doc, the exact probes, an explicit `authorized:` flag,
+> and a scope allowlist enforced in code before any socket opens. See
+> [`farthing-approval-surface.md`](./engagements/farthing-approval-surface.md)
+> (defined, deliberately unauthorized) and
+> [`local-approval-rehearsal.yaml`](./engagements/local-approval-rehearsal.yaml)
+> (the runnable rehearsal against this repo's own weakened target). Prefer that
+> pair for a new engagement; this template remains the hand-written findings
+> write-up for a siege driven by `coehoorn run`.
+
 > **This is the *findings* deliverable.** The surrounding client-facing artifacts
 > live in [`engagements/`](./engagements/): the
 > [SOW template](./engagements/SOW_TEMPLATE.md) (scope, phases, illustrative
@@ -136,9 +147,18 @@ turns it into a repeatable gate:
   the configured agent, uploads the cited breaches to the **Security tab**
   (SARIF), publishes a **JUnit** test report, and posts a **PR comment**
   listing each breach with its cited turn.
-- With no `AGENT_ENDPOINT` configured (e.g. a fork PR), the workflow **no-ops
-  gracefully** — the check stays green, nothing leaks.
+- With no `AGENT_ENDPOINT` configured (e.g. a fork PR), the siege job is
+  **skipped, not passed** — the guard job resolves the config, the siege is
+  gated on its output, and nothing leaks. A green check for a siege that never
+  ran would be the same dishonest verdict this harness exists to make
+  unrepresentable.
 - To make a breach a hard gate, add `--fail-on-breach` to the run step.
+- Transcripts are redacted **before** they are judged or written:
+  `--redact standard` (the default) removes credentials, email addresses, US
+  SSNs and card numbers; `--redact strict` adds phone numbers, IPv4 addresses
+  and hex digests; client-specific shapes go in the rubric's `redaction:`
+  block. This is what makes §9 of the SOW ("handling: redaction …") an
+  answerable question rather than a promise.
 
 > The local-stub workflow (`.github/workflows/siege.yml`) stays as the offline,
 > key-free demo; `external-siege.yml` is the real-target counterpart.

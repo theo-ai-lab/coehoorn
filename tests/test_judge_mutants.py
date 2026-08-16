@@ -1,4 +1,4 @@
-"""Judge Mutation Score — deterministic, offline tests (Feature #2).
+"""Judge Mutation Score — deterministic, offline tests.
 
 Pins the honest headline on the frozen 13-cell single-persona gold: planted=6,
 caught=4 {M1,M2,M3,M4}, score=4/6, survivors {M5 abstain-gap, M6 tool-policy
@@ -349,9 +349,9 @@ def test_existing_meta_eval_unaffected():
 
 
 # --------------------------------------------------------------------------- #
-# Review fixes (F1 / F3 / F4 / F9).
+# Regression locks: anchor diagnosis, gold-loader errors, criterion selection.
 # --------------------------------------------------------------------------- #
-def test_F1_divergent_anchor_is_diagnosed_not_silent():
+def test_divergent_anchor_is_diagnosed_not_silent():
     """A gold=fail cell whose gold_cited_turn != the heuristic's own cite offers no
     faithful reference, so M1/M4 cannot be caught there. The survival must be
     DIAGNOSED (n_anchor_mismatch + a clarified gap) — not silently blamed on a
@@ -393,14 +393,14 @@ def test_F1_divergent_anchor_is_diagnosed_not_silent():
         assert "Set gold_cited_turn" not in m.gap  # the old misleading advice is gone
 
 
-def test_F1_shipped_gold_has_no_anchor_mismatch():
+def test_shipped_gold_has_no_anchor_mismatch():
     score = _run()
     assert score.baseline.n_anchor_mismatch == 0  # all anchors match the heuristic cite
     assert score.baseline.citation_faithfulness == 1.0
     assert score.caught == 4  # the headline is unchanged by the F1 diagnostic
 
 
-def test_F3_load_gold_rejects_duplicate_id(tmp_path):
+def test_load_gold_rejects_duplicate_id(tmp_path):
     p = tmp_path / "dup.jsonl"
     row = '{"id":"d","criterion_id":"c","gold":"pass","turns":[["user","x"],["assistant","y"]]}'
     p.write_text(row + "\n" + row + "\n")
@@ -410,7 +410,7 @@ def test_F3_load_gold_rejects_duplicate_id(tmp_path):
     assert ":2:" in str(ei.value)  # the offending line is named
 
 
-def test_F4_load_gold_names_line_on_malformed(tmp_path):
+def test_load_gold_names_line_on_malformed(tmp_path):
     p = tmp_path / "bad.jsonl"
     p.write_text(
         '{"id":"ok","criterion_id":"c","gold":"pass","turns":[["user","x"],["assistant","y"]]}\n'
@@ -421,7 +421,7 @@ def test_F4_load_gold_names_line_on_malformed(tmp_path):
     assert ":2:" in str(ei.value)
 
 
-def test_F4_cli_clean_error_on_missing_file(capsys):
+def test_cli_clean_error_on_missing_file(capsys):
     parser = _build_local_parser()
     args = parser.parse_args(
         ["mutation-score", "--gold", "/nonexistent/gold.jsonl", "--rubric", str(RUBRIC)]
@@ -430,7 +430,7 @@ def test_F4_cli_clean_error_on_missing_file(capsys):
     assert "error" in capsys.readouterr().err.lower()
 
 
-def test_F9_score_selects_criterion_by_id_not_index():
+def test_score_selects_criterion_by_id_not_index():
     """A multi-criterion predictor (the public VerdictPredictor type permits one)
     that returns the gold criterion SECOND must still be scored on the RIGHT
     criterion — reading criterion_verdicts[0] would grade the wrong one."""
@@ -465,7 +465,7 @@ def test_F9_score_selects_criterion_by_id_not_index():
     assert snap.citation_in_range == 1.0
 
 
-def test_F9_mutant_transforms_target_gold_criterion_not_index_zero():
+def test_mutant_transforms_target_gold_criterion_not_index_zero():
     """Regression (multi-criterion baseline): the mutant TRANSFORMS (not just
     _score) must target the gold criterion. With a custom multi-criterion baseline
     whose target criterion is SECOND, M1/M4 must relocate the RIGHT citation and

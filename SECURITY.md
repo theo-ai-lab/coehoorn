@@ -38,7 +38,7 @@ If you change the stub to bind a non-loopback interface, you are deploying a cha
 
 ## Run artifacts
 
-- `runs/` directory contents are gitignored except for `runs/sample/` (the deterministic demo report).
+- `runs/` directory contents are gitignored except for the three committed, byte-reproducible demo reports: `runs/sample/` (chat siege), `runs/sample-tools/` (tool siege), and `runs/sample-mcp/` (the MCP tool-poisoning pack).
 - Each `<id>.json` is a serialized `Report` — full conversation transcripts, persona definitions, per-criterion verdicts, cited turn indices. Treat them as containing whatever you sent into the rubric and whatever the agent replied with.
 - The HTML viewer is a self-contained artifact (one file, no assets). It can be emailed, attached, or printed without leaking dependencies.
 

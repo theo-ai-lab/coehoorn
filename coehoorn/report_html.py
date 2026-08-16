@@ -118,6 +118,13 @@ def _css() -> str:
   .cartouche .tally.clear .n-breach {{ color: var(--held); }}
   .cartouche .tally .lede {{ font-variant: small-caps; letter-spacing: 0.05em; }}
   .cartouche .verdict-prose {{ font-size: 1.02rem; margin-top: 0.35rem; color: var(--ink); }}
+  .partial-mark {{
+    margin: 0.7rem auto 0; max-width: 34rem; padding: 0.4rem 0.7rem;
+    border: 1.2px solid var(--breach); color: var(--breach);
+    font-variant: small-caps; letter-spacing: 0.06em; font-size: 0.9rem;
+  }}
+  .partial-mark b {{ letter-spacing: 0.18em; font-variant: normal; }}
+  .lost td {{ color: var(--sepia); }}
   .rule {{
     height: 0; border: 0; border-top: 1px solid var(--ink);
     box-shadow: 0 2px 0 -1px var(--rule-faint); margin: 1.4rem 0;
@@ -355,6 +362,14 @@ def _cartouche_prose(report: Report) -> str:
     held = sum(1 for v in report.verdicts if v.outcome is VerdictOutcome.PASS)
     abstained = sum(1 for v in report.verdicts if v.outcome is VerdictOutcome.ABSTAIN)
     if breaches == 0 and abstained == 0:
+        if report.partial:
+            # Not a clean sweep: some walls were never tested. Say the
+            # denominator in the same breath as the result, or the sentence
+            # reads as a verdict on a siege that did not finish.
+            return (
+                f"{total} of the {report.approaches_attempted} approaches were "
+                "repulsed; the rest never reached the wall."
+            )
         return f"All {total} approaches repulsed; the works held."
     # The tally above already states the breach count, so the prose carries the
     # non-redundant detail only: how many held, how deep the worst breach went.
@@ -374,6 +389,54 @@ def _cartouche_prose(report: Report) -> str:
     if abstained:
         bits.append(f"{abstained} inconclusive")
     return " · ".join(bits) + "."
+
+
+def _partial_mark(report: Report) -> str:
+    """The header stamp for a survey that lost approaches on the wire.
+
+    A partial survey must announce itself where the tally is read, not in a
+    footnote: the tally's denominator is the approaches that *completed*, and a
+    reader who misses that would take a rate-limited siege for a clean one.
+    """
+    if not report.partial:
+        return ""
+    completed = len(report.verdicts)
+    attempted = report.approaches_attempted
+    lost = len(report.errors)
+    return (
+        '<div class="partial-mark"><b>PARTIAL</b> &mdash; '
+        f"{completed} of {attempted} approaches completed; "
+        f'{lost} lost on the wire. <a href="#lost">See below.</a></div>'
+    )
+
+
+def _lost_approaches(report: Report) -> str:
+    """The per-approach error table: which approach, which class, what the
+    target said. Never merged into the breach table — nothing was learned
+    about these walls, and a reader must not read silence as a hold."""
+    if not report.errors:
+        return ""
+    rows = "".join(
+        f'<tr><td><span class="token">{_esc(e.persona_id)}</span> '
+        f"{_esc(e.archetype.value)}</td>"
+        f"<td>{_esc(e.error_class.value)}</td>"
+        f"<td>{_esc(e.status_code) if e.status_code is not None else '&mdash;'}</td>"
+        f"<td>{_esc(e.message)}"
+        + (
+            f' <span class="token">retry after {e.retry_after_seconds:.0f}s</span>'
+            if e.retry_after_seconds is not None
+            else ""
+        )
+        + "</td></tr>"
+        for e in sorted(report.errors, key=lambda e: e.persona_id)
+    )
+    return f"""
+    <h2 id="lost">Approaches lost</h2>
+    <p><em>These approaches never reached the wall. Nothing was learned about
+    them &mdash; they are neither held nor breached.</em></p>
+    <table class="lost"><tr><th scope="col">approach</th><th scope="col">class</th>
+    <th scope="col">status</th><th scope="col">what happened</th></tr>{rows}</table>
+    """
 
 
 def _legend() -> str:
@@ -482,6 +545,8 @@ def _contents(report: Report, judge_eval: GoldEvalResult | None) -> str:
     evidence without scrolling past the calibration table. Plain anchors, no
     script; hidden in print, where the whole record lays out in order."""
     items = [("#breaches", "Breaches by criterion")]
+    if report.errors:
+        items.append(("#lost", "Approaches lost"))
     if judge_eval is not None:
         items.append(("#calibration", "Judge calibration"))
     items.append(("#evidence", "Evidence"))
@@ -604,7 +669,8 @@ def render_report_html(report: Report, judge_eval: GoldEvalResult | None = None)
         f'{"breach" if breaches == 1 else "breaches"} '
         f'<span class="lede">of {total} approaches</span></div>'
         f'<div class="verdict-prose">{_esc(_cartouche_prose(report))}</div>'
-        f'<div class="token" style="margin-top:0.5rem">run {_esc(report.run_id)} · '
+        + _partial_mark(report)
+        + f'<div class="token" style="margin-top:0.5rem">run {_esc(report.run_id)} · '
         f"{_esc(report.created_at.isoformat())} &rarr; "
         f"{_esc(report.completed_at.isoformat())}</div>"
         "</div>"
@@ -624,6 +690,7 @@ def render_report_html(report: Report, judge_eval: GoldEvalResult | None = None)
         cartouche + figure + _legend() + summary_line
         + _contents(report, judge_eval)
         + _breach_table(report)
+        + _lost_approaches(report)
         + _meta_panel(judge_eval)
         + '<hr class="rule"/>'
         + _transcripts(report)

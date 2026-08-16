@@ -50,11 +50,17 @@ class HttpAgentAdapter:
         timeout: float = 30.0,
         client: httpx.AsyncClient | None = None,
         headers: dict[str, str] | None = None,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.timeout = timeout
         self._client = client
         self._owns_client = client is None
+        # A scope-pinned transport (coehoorn.engagement.pinned_transport) dials
+        # the address the engagement was approved on instead of re-resolving the
+        # name. Supplying it here rather than a whole client keeps the adapter
+        # the owner, so the connection pool is still closed with the adapter.
+        self._transport = transport
         # Optional auth headers for a real external target (e.g. a bearer
         # token). Empty/None means "send nothing extra" — identical wire
         # bytes to the local-stub path. Resolve these via coehoorn.config so
@@ -63,7 +69,16 @@ class HttpAgentAdapter:
 
     def _get_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=self.timeout)
+            # trust_env=False: httpx otherwise reads HTTP_PROXY/HTTPS_PROXY/
+            # ALL_PROXY and mounts a proxy transport, which would carry every
+            # request to a host the engagement never authorized — defeating the
+            # allowlist and the reserved-address refusal at once, with no access
+            # to the engagement file, just an environment variable. An operator
+            # who genuinely needs a proxy declares it by injecting a client or a
+            # transport, which is the same fail-closed shape as the allowlist.
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout, transport=self._transport, trust_env=False
+            )
         return self._client
 
     async def __call__(self, conversation: list[dict]) -> str:
